@@ -1,0 +1,4 @@
+{
+	"https_port": null,
+	"handlers" : ["handlers/gloria_handlers.js"]
+}
