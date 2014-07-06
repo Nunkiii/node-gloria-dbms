@@ -1,4 +1,15 @@
 {
-	"https_port": null,
-	"handlers" : ["handlers/gloria_handlers.js"]
+    "https_port": null,
+    "handlers" : [ {
+	"file" : "handlers/gloria_handlers.js",
+	"opts" : {
+	    "sql_server_opts" : {
+		"host"     : "localhost",
+		"user"     : "dbusername",
+		"password" : "dbpassword",
+		"database" : "databasename"
+	    }
+	}
+    }]
+    
 }
