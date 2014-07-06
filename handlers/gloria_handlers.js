@@ -4,7 +4,12 @@ var fs = require('fs');
 var url = require('url');
 var sys = require('sys');
 var fits = require('../../node-fits/build/Release/fits.node');
+var sql_server_opts;
 
+exports.init=function(pkg){
+    console.log("gloria dbms init pkg ! " + JSON.stringify(pkg.opts.sql_server_opts));
+    sql_server_opts=pkg.opts.sql_server_opts;
+}
 
 function parse_date(key){
     var d=new Date(key); 
@@ -49,13 +54,7 @@ function record_image_mongo(collection_name, image_header, result_cb){
 var sql_cnx;
 
 function mysql_connect(result_cb) {
-    sql_cnx= mysql.createConnection({
-	host     : 'localhost',
-	user     : 'gloriausr',
-	password : 'GLORIA2011',
-	database : "gloriadb"
-    });
-
+    sql_cnx= mysql.createConnection(sql_server_opts);
     sql_cnx.connect(result_cb);
 }
 
@@ -116,12 +115,13 @@ function record_gloria_mysql(table_name, image_header, result_cb){
 
 GLOBAL.handle_fits_file_download=function(image_id, result_cb){
     
+    console.log("Analysing downloaded FITS file....");
+
+    
     var http = require('http');
     var fs = require('fs');
-    var upload_path="/data/gloria/";
+    var upload_path="./gloria_upload/";
     var file_name= Math.random().toString(36).substring(2) + ".fits";
-
-
     
     check_mysql_cnx(function(err) {
 	if(err){
@@ -142,6 +142,7 @@ GLOBAL.handle_fits_file_download=function(image_id, result_cb){
 	    var theurl=result[0].file_url;
 	    
 	    console.log("Downloading URL ["+theurl+"]");
+
 /*
 	    var downloadfile = result[0].file_url;
 
@@ -281,6 +282,8 @@ var telescope_dictionary ={
 
 GLOBAL.handle_fits_file_keys=function(image_id, result_cb){
 
+    console.log("Analysing FITS keywords...");
+
     check_mysql_cnx(function(err) {
 	if(err){
 	    result_cb("Error connecting to MySQL : " + err); 
@@ -378,8 +381,6 @@ GLOBAL.handle_fits_file_keys=function(image_id, result_cb){
 	    
 	});
 
-
-
     });
 }
 
@@ -395,7 +396,6 @@ function record_image_mysql(table_name, image_header, result_cb){
     connection.connect(function(err) {
 	
 	if(err) return result_cb(err);
-
 	console.log("Ok, inserting ["+  JSON.stringify(image_header) +"]");
 
 	var query = connection.query('INSERT INTO '+table_name+' SET ?', image_header, function(err, result) {
@@ -404,7 +404,6 @@ function record_image_mysql(table_name, image_header, result_cb){
 		result_cb(null);
 	    }
 	});
-	
 	console.log(query.sql);
     });
 }
@@ -470,7 +469,7 @@ post_handlers.gloria = {
 	    return;
 	*/		    
 	    
-	    var upload_path="./gloria/solar_images";
+	    var upload_path="./gloria_upload";
 	    var form = new formidable.IncomingForm({ uploadDir : upload_path});
 	    
 	    form.parse(request, function(err, fields, files) {
@@ -550,222 +549,31 @@ post_handlers.gloria = {
 		    console.log(error);
 		}
 		
+		console.log("End of form parse...");
 	    });
+
+	    console.log("Enf of POST process!");
 	}
+
     }
 }
 
-
-post_handlers.telescope = {
-    
-    solar : {
-	
-	process : function (query, request, res){
-	    
-	    var upload_path="./gloria/solar_images";
-	    var form = new formidable.IncomingForm({ uploadDir : upload_path});
-	    
-	    form.parse(request, function(err, fields, files) {
-		
-		try{
-
-		    if(err) throw 'POST parse error ' + err;
-		    
-		    if(typeof fields.json_header == 'undefined') throw "No json_header field !";
-		    if(typeof files.image_file == 'undefined') throw "No image_file field !";
-		    
-		    var json_header;
-		    var image_file=files.image_file;
-		    
-		    
-		    try{json_header= JSON.parse(fields.json_header);} catch (e){ throw "JSON error while parsing json_header " + e; }
-			if(image_file.size==0) throw "No file data received !";
-		    
-		    var parsed_header={};
-		    
-		    for(var  k in keywords ){
-			console.log("Checking keyword " + k );
-			if(typeof json_header[k] == 'undefined') throw "Missing mandatory keyword : " + k;
-			parsed_header[k]=keywords[k](json_header[k]);
-		    };
-		    
-		    var fsplit=image_file.path.split('/');
-		    
-		    parsed_header.file_type=image_file.type;
-		    parsed_header.file_path=upload_path;
-		    parsed_header.file_name=fsplit[fsplit.length-1];
-
-		    parsed_header.file_orig=image_file.name;
-		    
-		    console.log("Validated header : " + JSON.stringify(parsed_header,null,5));
-		    //console.log(util.inspect({fields: fields, files: files}));
-		    //console.log('JSON Header : ' + JSON.stringify(json_header,null,5));
-		    console.log('Files : ' + jstringify(files));
-
-		    res.writeHead(200, {'content-type': 'text/plain'});
-		    if(parsed_header.file_type=="image/fits")
-			process_fits_file(parsed_header, res);
-		    
-		    record_image_mongo("gloria_imgs", parsed_header, function (e){
-			
-			if(e){
-			    res.writeHead(200, {'content-type': 'text/plain'});
-			    var error="MongoDB : " + e;
-			    res.write(JSON.stringify({ status: "error", error_message:  error })) ;
-			    res.end();			
-			    console.log(error);
-			    return;
-			}
-			delete parsed_header._id;
-			record_image_mysql("gloria_imgs", parsed_header, function (e){
-			    
-			    if(e){
-				    res.writeHead(200, {'content-type': 'text/plain'});
-				var error="MySQL : " + e;
-				    res.write(JSON.stringify({ status: "error", error_message:  error })) ;
-				res.end();			
-				console.log(error);
-				return;
-			    }
-			    
-			    
-			    res.write( JSON.stringify( { status :  'ok' })) ;
-			    res.end();			
-			    
-			});
-			
-		    });
-		}
-		catch (e){
-		    res.writeHead(200, {'content-type': 'text/plain'});
-		    var error="" + e;
-		    res.write(JSON.stringify({ status: "error", error_message:  error })) ;
-		    res.end();			
-		    console.log(error);
-		}
-		
-		
-	    });
-	}
-    },
-
-
-    night : {
-	
-	process : function (query, request, res){
-	    
-	    var upload_path="./gloria/night_images";
-	    var form = new formidable.IncomingForm({ uploadDir : upload_path});
-	    
-	    form.parse(request, function(err, fields, files) {
-		
-		try{
-
-		    if(err) throw 'POST parse error ' + err;
-		    
-		    if(typeof fields.json_header == 'undefined') throw "No json_header field !";
-		    if(typeof files.image_file == 'undefined') throw "No image_file field !";
-		    
-		    var json_header;
-		    var image_file=files.image_file;
-		    
-		    
-		    try{json_header= JSON.parse(fields.json_header);} catch (e){ throw "JSON error while parsing json_header " + e; }
-			if(image_file.size==0) throw "No file data received !";
-		    
-		    var parsed_header={};
-		    
-		    for(var  k in keywords ){
-			console.log("Checking keyword " + k );
-			if(typeof json_header[k] == 'undefined') throw "Missing mandatory keyword : " + k;
-			parsed_header[k]=keywords[k](json_header[k]);
-		    };
-		    
-		    var fsplit=image_file.path.split('/');
-		    
-		    parsed_header.file_type=image_file.type;
-		    parsed_header.file_path=upload_path;
-		    parsed_header.file_name=fsplit[fsplit.length-1];
-
-		    parsed_header.file_orig=image_file.name;
-		    
-		    console.log("Validated header : " + JSON.stringify(parsed_header,null,5));
-		    //console.log(util.inspect({fields: fields, files: files}));
-		    //console.log('JSON Header : ' + JSON.stringify(json_header,null,5));
-		    console.log('Files : ' + jstringify(files));
-
-		    res.writeHead(200, {'content-type': 'text/plain'});
-		    if(parsed_header.file_type=="image/fits")
-			process_fits_file(parsed_header, res);
-		    
-		    record_image_mongo("gloria_imgs", parsed_header, function (e){
-			
-			if(e){
-			    res.writeHead(200, {'content-type': 'text/plain'});
-			    var error="MongoDB : " + e;
-			    res.write(JSON.stringify({ status: "error", error_message:  error })) ;
-			    res.end();			
-			    console.log(error);
-			    return;
-			}
-			delete parsed_header._id;
-			record_image_mysql("gloria_imgs", parsed_header, function (e){
-			    
-			    if(e){
-				    res.writeHead(200, {'content-type': 'text/plain'});
-				var error="MySQL : " + e;
-				    res.write(JSON.stringify({ status: "error", error_message:  error })) ;
-				res.end();			
-				console.log(error);
-				return;
-			    }
-			    
-			    
-			    res.write( JSON.stringify( { status :  'ok' })) ;
-			    res.end();			
-			    
-			});
-			
-		    });
-		}
-		catch (e){
-		    res.writeHead(200, {'content-type': 'text/plain'});
-		    var error="" + e;
-		    res.write(JSON.stringify({ status: "error", error_message:  error })) ;
-		    res.end();			
-		    console.log(error);
-		}
-		
-		
-	    });
-	}
-    }
-};
-
 get_handlers.gloria = {
-
-
-    
     
     submit : {
 	process : function (query, request, res){
-	    
-
 	    var type= query.type;
 	    console.log("GLORIA get request query is " + JSON.stringify(query));
-	    
 	}
     },    
     
     get : {
 	process : function (query, request, res){
-	    
 
 	    var type= query.type;
 	    
 
 	    console.log("GLORIA get request query is " + JSON.stringify(query));
-
 	    var query_string="select * from gloria_imgs where file_type='"+type+"'";
 	    
 	    query_mysql(query_string, function(error, rows, fields){
