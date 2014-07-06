@@ -3,7 +3,7 @@ var mysql = require('mysql');
 var fs = require('fs');
 var url = require('url');
 var sys = require('sys');
-var fits = require('./node-fits/build/Release/fits.node');
+var fits = require('../../node-fits/build/Release/fits.node');
 
 
 function parse_date(key){
@@ -453,7 +453,7 @@ post_handlers.gloria = {
 
 
 	    console.log("GLORIA SUBMIT Received query : " + JSON.stringify(query));
-	    console.log("OK?");
+	    //console.log("OK?");
 
 
 	    res.writeHead(200, {
