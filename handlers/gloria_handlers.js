@@ -493,7 +493,8 @@ post_handlers.gloria = {
 			reservation_id : js_head.reservationid,
 			file_url : js_head.url,
 			user : js_head.user,
-			status : "processing"
+			status : "processing",
+			json_params : "{}"
 		    };
 		    
 		    for(var f in new_entry){
