@@ -4,11 +4,12 @@ var fs = require('fs');
 var url = require('url');
 var sys = require('sys');
 var fits = require('../../node-fits/build/Release/fits.node');
-var sql_server_opts;
+var sql_server_opts, submit_opts;
 
 exports.init=function(pkg){
     console.log("gloria dbms init pkg ! " + JSON.stringify(pkg.opts.sql_server_opts));
     sql_server_opts=pkg.opts.sql_server_opts;
+    submit_opts=pkg.opts.submit;
 }
 
 function parse_date(key){
@@ -384,8 +385,11 @@ GLOBAL.handle_fits_file_keys=function(image_id, result_cb){
     });
 }
 
-function authenticate_gloria_user(user_name, hash_password){
-    //
+function authenticate_gloria_user(user, hash_password){
+    if(submit_opts.user==user && CryptoJS.SHA1(submit_opts.password)==hash_password )
+	return true;
+    console.log("Authentication failed ! u=["+user+"] hp=["+hash_passord+"]");
+    return false;
 }
 
 
