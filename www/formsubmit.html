@@ -27,35 +27,37 @@
 
 
   </head>
-  <body>
-    
-    <h1>Try JavaScript POST</h1>
-    <button onclick="try_submit_js();"> Send in JS </button>
-    
-    <h1>Image upload POST interface</h1>
-    <form action="http://sadira.iasfbo.inaf.it:9999/gloria/submit" enctype="multipart/form-data" method="post">
-      <p><strong>JSON Header :</strong> 
-<textarea style="vertical-align: top;" name="json_header" cols="50" rows="10" >
-  {
-  "telescop" : "BOOTES-3",
-  "instrume" : "COLORES",
-  "exptime" : "60",
-  "date_obs" : "2014-03-11T12:13:03",
-  "user" : "FAKE_GLORIA_observer",
-  "object" : "M33",
-  "experimentid" : "night",
-  "reservationid" : 1234,
-  "url" : "www.dkfjdksjf.es"
-  }
-      </textarea></p>
-      <p><strong>Image File  :</strong><input type="file" name="image_file"></p>
-      <p><input type="submit" value="Send to DB" style="align: right;"></p>
-    </form>
+<body>
 
-    <h1>Query database</h1>
-    
-    <a href="http://sadira.iasfbo.inaf.it:9999/gloria/get?type=image/jpeg" > Try query JPEG</a><br>
-    <a href="http://sadira.iasfbo.inaf.it:9999/gloria/get?type=image/fits" > Try query FITS</a>
-
-  </body>
+  <h1>FITS DB image POST</h1>
+  <button onclick="try_submit_js();"> Send in JS </button>
+  
+  <h1>Image upload POST interface</h1>
+  
+  <form action="http://localhost:9999/gloria/submit" enctype="multipart/form-data" method="post">
+    <p><strong>JSON Header :</strong> 
+      <textarea style="vertical-align: top;" name="json_header" cols="50" rows="10" >
+	{
+	"telescop" : "BOOTES-3",
+	"instrume" : "COLORES",
+	"exptime" : "60",
+	"date_obs" : "2014-03-11T12:13:03",
+	"user" : "FAKE_GLORIA_observer",
+	"object" : "M33",
+	"experiment" : "M33 study",
+	"experimentid" : "night",
+	"reservationid" : 1234,
+	"url" : "www.dkfjdksjf.es/m33.fits"
+	}
+    </textarea></p>
+    <p><strong>Image File  :</strong><input type="file" name="image_file"></p>
+    <p><input type="submit" value="Send to DB" style="align: right;"></p>
+  </form>
+  
+  <h1>Query database</h1>
+  
+  <a href="http://sadira.iasfbo.inaf.it:9999/gloria/get?type=image/jpeg" > Try query JPEG</a><br>
+  <a href="http://sadira.iasfbo.inaf.it:9999/gloria/get?type=image/fits" > Try query FITS</a>
+  
+</body>
 </html>
