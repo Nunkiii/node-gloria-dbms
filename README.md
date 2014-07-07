@@ -7,7 +7,7 @@ Image database services for the GLORIA project.
 
 This package depends on the sadira package https://github.com/Nunkiii/sadira. 
 
-Download both the node-ncip and the sadira packages (download zip files or use git clone), then enter the `node-ncip` directory and make symbolic links to access the sadira javascript resources. 
+Download both the node-gloria-dbms and the sadira packages (download zip files or use git clone), then enter the `node-gloria-dbms` directory and make a symbolic to the sadira source directory: 
 
     /some/dir$ git clone https://github.com/Nunkiii/sadira.git
     /some/dir$ git clone https://github.com/Nunkiii/node-gloria-dbms.git
