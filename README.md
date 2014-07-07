@@ -18,5 +18,5 @@ Download both the node-ncip and the sadira packages (download zip files or use g
 
 Edit the `sadira.conf.json` file to setup database and server parameters, then launch the server from the `node-gloria-dbms` directory:
 
-    /some/dir/XD-1$node sadira/sadira.js --cf sadira.conf.json 
+    /some/dir/node-gloria-dbms$node sadira/sadira.js --cf sadira.conf.json 
 
