@@ -1,5 +1,6 @@
 {
-    "https_port": null,
+    "https_port": 8888,
+    "http_port": null,
     "handlers" : [ {
 	"file" : "handlers/gloria_handlers.js",
 	"opts" : {
@@ -8,6 +9,10 @@
 		"user"     : "dbusername",
 		"password" : "dbpassword",
 		"database" : "databasename"
+	    },
+	    "submit" : {
+		"password" : "spasswd",
+		"user" : "suname"
 	    }
 	}
     }]
