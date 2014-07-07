@@ -303,70 +303,76 @@ GLOBAL.handle_fits_file_keys=function(image_id, result_cb){
 	    try{
 		var fn=result[0].file_path + result[0].file_name;
 		var f = new fits.file(fn);
-		var fits_headers = f.get_headers();
-		
-		//console.log("Fits headers : " + JSON.stringify(fits_headers, null, 5));
-		
-		
-		var telename = fits_headers[0].keywords["TELESCOP"].value;
-		//telename=telename.replace(/[']/g, "");
-		
-		if(typeof telename=="undefined") 
-		    throw "Mandatory FITS Key TELESCOP not found !"; 
-		var teledic = telescope_dictionary[telename];
-		
-		if(typeof teledic=="undefined"){
-		    console.log(" Warning : Telescope ["+telename+"] unknwon in telescope dictionary, using default key names"); 
-		    teledic=telescope_dictionary['default'];
-		}
-
-		telekeys={ telescop : telename.replace(/[']/g, "")};
-		
-		for (var key in teledic){
-		    telekeys[key]=fits_headers[0].keywords[teledic[key]];
+		var fits_headers = f.get_headers(function(error, fits_headers){
 		    
-		    //console.log("A key ["+key+"]=["+telekeys[key]+"]");
+		    if(error) throw error;
 
-		    if(typeof telekeys[key]=="undefined") 
-			throw "Mandatory keyword ["+teledic[key]+"] not found in ["+telename+"] FITS file !"; 
-
-		    telekeys[key] = telekeys[key].value.replace(/[']/g, "");
-
-		    //console.log("B key ["+key+"]=["+telekeys[key]+"]");
-
-		    var kpp=keyword_postprocess[key];
-		    if(typeof kpp!="undefined") 
-			telekeys[key]=kpp(telekeys[key]);
-		    
-		    //console.log("C key ["+key+"]=["+telekeys[key]+"] escape = [" + sql_cnx.escape(telekeys[key]) + "]");
-		    
-		}
+		    		//console.log("Fits headers : " + JSON.stringify(fits_headers, null, 5));
 		
-
-		var qss=""; var count=0,n=0;
-		for (var k in telekeys) if (telekeys.hasOwnProperty(k)) count++;
-		
-		for (var key in telekeys){
-		    qss+=" "+ key + "= "+ sql_cnx.escape(telekeys[key]);
-		    if(n!=count-1) qss+=", ";
 		    
-		    n++;
-		}
-		//console.log("update query is ["+qss+"]");
-		
-		sql_cnx.query("update gloria_imgs SET "+qss+"  WHERE autoID = " + sql_cnx.escape(image_id)+";", function(err, result) {
-		    if(err){
-			result_cb("Error inserting entry in DB : " + err); 
-			sql_cnx.query("update gloria_imgs set status='error' where autoID="+image_id+";", function(err, result) {
-			    if(err){
-				console.log("BUG: Error setting error status : " + err); 
-				return;
-			    }
-			});
-			return;
+		    var telename = fits_headers[0].keywords["TELESCOP"].value;
+		    //telename=telename.replace(/[']/g, "");
+		    
+		    if(typeof telename=="undefined") 
+			throw "Mandatory FITS Key TELESCOP not found !"; 
+		    var teledic = telescope_dictionary[telename];
+		    
+		    if(typeof teledic=="undefined"){
+			console.log(" Warning : Telescope ["+telename+"] unknwon in telescope dictionary, using default key names"); 
+			teledic=telescope_dictionary['default'];
 		    }
-		    result_cb(null);
+		    
+		    telekeys={ telescop : telename.replace(/[']/g, "")};
+		    
+		    for (var key in teledic){
+			telekeys[key]=fits_headers[0].keywords[teledic[key]];
+			
+			//console.log("A key ["+key+"]=["+telekeys[key]+"]");
+			
+			if(typeof telekeys[key]=="undefined") 
+			    throw "Mandatory keyword ["+teledic[key]+"] not found in ["+telename+"] FITS file !"; 
+			
+			telekeys[key] = telekeys[key].value.replace(/[']/g, "");
+			
+			//console.log("B key ["+key+"]=["+telekeys[key]+"]");
+			
+			var kpp=keyword_postprocess[key];
+			if(typeof kpp!="undefined") 
+			    telekeys[key]=kpp(telekeys[key]);
+			
+			//console.log("C key ["+key+"]=["+telekeys[key]+"] escape = [" + sql_cnx.escape(telekeys[key]) + "]");
+			
+		    }
+		    
+		    
+		    var qss=""; var count=0,n=0;
+		    for (var k in telekeys) if (telekeys.hasOwnProperty(k)) count++;
+		    
+		    for (var key in telekeys){
+			qss+=" "+ key + "= "+ sql_cnx.escape(telekeys[key]);
+			if(n!=count-1) qss+=", ";
+			
+			n++;
+		    }
+		    //console.log("update query is ["+qss+"]");
+		    
+		    sql_cnx.query("update gloria_imgs SET "+qss+"  WHERE autoID = " + sql_cnx.escape(image_id)+";", function(err, result) {
+			if(err){
+			    result_cb("Error inserting entry in DB : " + err); 
+			    sql_cnx.query("update gloria_imgs set status='error' where autoID="+image_id+";", function(err, result) {
+				if(err){
+				    console.log("BUG: Error setting error status : " + err); 
+				    return;
+				}
+			    });
+			    return;
+			}
+			result_cb(null);
+		    });
+		    
+		    
 		});
+		
 		
 	    }
 	    catch (e){
