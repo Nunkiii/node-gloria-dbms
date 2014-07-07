@@ -4,12 +4,13 @@ var fs = require('fs');
 var url = require('url');
 var sys = require('sys');
 var fits = require('../../node-fits/build/Release/fits.node');
-var sql_server_opts, submit_opts;
+var sql_server_opts, submit_opts, upload_dir;
 
 exports.init=function(pkg){
     console.log("gloria dbms init pkg ! " + JSON.stringify(pkg.opts.sql_server_opts));
     sql_server_opts=pkg.opts.sql_server_opts;
     submit_opts=pkg.opts.submit;
+    upload_dir = pkg.opts.upload_dir;
 }
 
 function parse_date(key){
@@ -121,7 +122,7 @@ GLOBAL.handle_fits_file_download=function(image_id, result_cb){
     
     var http = require('http');
     var fs = require('fs');
-    var upload_path="./gloria_upload/";
+
     var file_name= Math.random().toString(36).substring(2) + ".fits";
     
     check_mysql_cnx(function(err) {
@@ -130,7 +131,7 @@ GLOBAL.handle_fits_file_download=function(image_id, result_cb){
 	    return;
 	}
 	
-	var file = fs.createWriteStream(upload_path + file_name);
+	var file = fs.createWriteStream(upload_dir + file_name);
 	
 	var qs="select file_url from gloria_imgs where autoID="+sql_cnx.escape(image_id)+";";
 
@@ -148,7 +149,7 @@ GLOBAL.handle_fits_file_download=function(image_id, result_cb){
 	    var downloadfile = result[0].file_url;
 
 	    var host = url.parse(downloadfile).hostname
-	    var filename = upload_path + file_name; //url.parse(downloadfile).pathname.split("/").pop()
+	    var filename = upload_dir + file_name; //url.parse(downloadfile).pathname.split("/").pop()
 
 	    var theurl = http.createClient(80, host);
 	    var requestUrl = downloadfile;
@@ -170,7 +171,7 @@ GLOBAL.handle_fits_file_download=function(image_id, result_cb){
 		    downloadfile.end();
 		    console.log("Finished downloading " + filename);
 		    var qs="update gloria set file_name="
-			+ sql_cnx.escape(file_name)+", file_path="+ sql_cnx.escape(upload_path)+ " where autoID="
+			+ sql_cnx.escape(file_name)+", file_path="+ sql_cnx.escape(upload_dir)+ " where autoID="
 			+ sql_cnx.escape(image_id)+";"; 
 		    
 		    console.log("Image downloaded OK ! ["+qs+"]");
@@ -201,9 +202,9 @@ GLOBAL.handle_fits_file_download=function(image_id, result_cb){
 		});
 	    }
 
-	    download(theurl, upload_path + file_name, function(){
+	    download(theurl, upload_dir + file_name, function(){
 		var qs="update gloria_imgs set file_name="
-		    + sql_cnx.escape(file_name)+", file_path="+ sql_cnx.escape(upload_path)+ " where autoID="
+		    + sql_cnx.escape(file_name)+", file_path="+ sql_cnx.escape(upload_dir)+ " where autoID="
 		    + sql_cnx.escape(image_id)+";"; 
 		
 		console.log("Image downloaded OK ! ["+qs+"]");
@@ -473,8 +474,7 @@ post_handlers.gloria = {
 	    return;
 	*/		    
 	    
-	    var upload_path="./gloria_upload";
-	    var form = new formidable.IncomingForm({ uploadDir : upload_path});
+	    var form = new formidable.IncomingForm({ uploadDir : upload_dir});
 	    
 	    form.parse(request, function(err, fields, files) {
 
