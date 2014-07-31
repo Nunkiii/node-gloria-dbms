@@ -1,14 +1,17 @@
 var formidable = require('formidable');
 var mysql = require('mysql');
+var sqlut = require('./mysql_utils');
+
 var fs = require('fs');
 var url = require('url');
 var sys = require('sys');
 var fits = require('../../node-fits/build/Release/fits.node');
-var sql_server_opts, submit_opts, upload_dir;
+
+var submit_opts, upload_dir;
 
 exports.init=function(pkg){
     console.log("gloria dbms init pkg ! " + JSON.stringify(pkg.opts.sql_server_opts));
-    sql_server_opts=pkg.opts.sql_server_opts;
+    sqlut.sql_server_opts=pkg.opts.sql_server_opts;
     submit_opts=pkg.opts.submit;
     upload_dir = pkg.opts.upload_dir;
 }
@@ -53,44 +56,11 @@ function record_image_mongo(collection_name, image_header, result_cb){
     });
 }
 
-var sql_cnx;
-
-function mysql_connect(result_cb) {
-    sql_cnx= mysql.createConnection(sql_server_opts);
-    sql_cnx.connect(result_cb);
-}
-
-
-function check_mysql_cnx(result_cb){
-
-    console.log("Checking sql cnx...");
-
-    if(typeof sql_cnx == 'undefined'){
-
-	console.log("Opening connection to mysql ...");
-
-	mysql_connect(function (err){
-	    if(err){
-		console.log("ERROR ..." + err.stack);
-		return result_cb(err);
-	    }else{
-		console.log("CNX OPEN, OK CNX id : " + sql_cnx.threadId);
-		result_cb(null);
-	    }
-	    
-	});
-    }else{
-	console.log("CNX already open, OK");
-	result_cb(null);
-    }
-    
-    
-}
 
 function record_gloria_mysql(table_name, image_header, result_cb){
     
 
-    check_mysql_cnx(function(err) {
+    sqlut.sql_connect(function(err, sql_cnx) {
 	if(err){
 	    result_cb("Error connecting to MySQL : " + err); 
 	    return;
@@ -115,17 +85,49 @@ function record_gloria_mysql(table_name, image_header, result_cb){
     });
 }
 
-GLOBAL.handle_fits_file_download=function(image_id, result_cb){
+
+function create_jpeg(image_id, result_cb){
     
     console.log("Analysing downloaded FITS file....");
-
     
     var http = require('http');
     var fs = require('fs');
 
     var file_name= Math.random().toString(36).substring(2) + ".fits";
     
-    check_mysql_cnx(function(err) {
+    sqlut.sql_connect(function(err, sql_cnx) {
+
+	if(err){
+	    result_cb("Error connecting to MySQL : " + err); 
+	    return;
+	}
+	
+	var qs="select file_path, file_name from gloria_imgs where autoID="+sql_cnx.escape(image_id)+";";
+
+	sql_cnx.query(qs, function(err, result) {
+	    if(err){
+		result_cb("Error getting URL from DB : " + err); 
+		return;
+	    }
+	    var fpath=file_path+"/"+file_name;
+	    result_cb(null, "Image is="+JSON.stringify(fpath));
+	    
+	    var f = new fits.file(fpath);
+	    
+	});
+    });
+}
+
+
+GLOBAL.handle_fits_file_download=function(image_id, result_cb){
+    
+    console.log("Analysing downloaded FITS file....");
+    
+    var http = require('http');
+    var fs = require('fs');
+    var file_name= Math.random().toString(36).substring(2) + ".fits";
+    
+    sqlut.sql_connect(function(err, sql_cnx) {
 	if(err){
 	    result_cb("Error connecting to MySQL : " + err); 
 	    return;
@@ -194,15 +196,33 @@ GLOBAL.handle_fits_file_download=function(image_id, result_cb){
 	    
 	    var download = function(url, dest, cb) {
 		var file = fs.createWriteStream(dest);
-		var request = http.get(url, function(response) {
-		    response.pipe(file);
-		    file.on('finish', function() {
-			file.close(cb);
-		    });
+		http.get(url, function(response) {
+		    console.log("download status : " + response.statusCode);
+		    if(response.statusCode == 200){
+			
+			file.on('finish', function() {
+			    file.close(cb);
+			});
+
+			file.on('error', function(er) {
+			    cb(er);
+			});
+
+
+			response.pipe(file);
+		    } else cb("Problem downloading image...");
+		}).on('error', function(e) {
+		    console.log('Problem with download request: ' + e.message);
+		    cb(e.message);
 		});
 	    }
 
-	    download(theurl, upload_dir + file_name, function(){
+	    download(theurl, upload_dir + file_name, function(error){
+		
+		if(error){
+		    return result_cb(error);
+		}
+		
 		var qs="update gloria_imgs set file_name="
 		    + sql_cnx.escape(file_name)+", file_path="+ sql_cnx.escape(upload_dir)+ " where autoID="
 		    + sql_cnx.escape(image_id)+";"; 
@@ -218,8 +238,6 @@ GLOBAL.handle_fits_file_download=function(image_id, result_cb){
 				  result_cb(null);
 				  
 			      });
-		
-		
 	    });
 	    
 	    /*
@@ -285,8 +303,8 @@ var telescope_dictionary ={
 GLOBAL.handle_fits_file_keys=function(image_id, result_cb){
 
     console.log("Analysing FITS keywords...");
-
-    check_mysql_cnx(function(err) {
+    
+    sqlut.sql_connect(function(err, sql_cnx) {
 	if(err){
 	    result_cb("Error connecting to MySQL : " + err); 
 	    return;
@@ -309,12 +327,12 @@ GLOBAL.handle_fits_file_keys=function(image_id, result_cb){
 
 		    		//console.log("Fits headers : " + JSON.stringify(fits_headers, null, 5));
 		
-		    
-		    var telename = fits_headers[0].keywords["TELESCOP"].value;
-		    //telename=telename.replace(/[']/g, "");
-		    
-		    if(typeof telename=="undefined") 
+		    var telekey=fits_headers[0].keywords["TELESCOP"];
+		    if(typeof telekey=="undefined") 
 			throw "Mandatory FITS Key TELESCOP not found !"; 
+
+		    var telename = telekey.value;
+		    //telename=telename.replace(/[']/g, "");
 		    var teledic = telescope_dictionary[telename];
 		    
 		    if(typeof teledic=="undefined"){
@@ -570,6 +588,27 @@ post_handlers.gloria = {
 }
 
 get_handlers.gloria = {
+
+
+    test : {
+	process : function (query, request, res){
+
+	    create_jpeg(96, function(error, r){
+		res.writeHead(200, {'content-type': 'text/plain'});
+
+		if(error != null)
+		    res.write("Error : " + error);
+		else
+		    res.write("OK : " + r);
+		res.end();			
+	    });
+
+
+	    return;
+	    
+	}
+
+    },
     
     submit : {
 	process : function (query, request, res){
