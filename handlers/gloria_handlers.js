@@ -24,6 +24,8 @@ function parse_date(key){
 }
 
 function parse_number(key){
+    console.log(JSON.stringify(key) + " + key type " + typeof(key));
+    if(typeof key == "number") return key;
     var n=new Number(key); if(isNaN(n)) throw "invalid numerical value given"; 
     return n*1.0;
 }
@@ -109,11 +111,71 @@ function create_jpeg(image_id, result_cb){
 		result_cb("Error getting URL from DB : " + err); 
 		return;
 	    }
-	    var fpath=file_path+"/"+file_name;
+	    //console.log("res = " + JSON.stringify(result));
+	    var fpath=result[0].file_path+"/"+result[0].file_name;
 	    result_cb(null, "Image is="+JSON.stringify(fpath));
 	    
 	    var f = new fits.file(fpath);
 	    
+	    f.read_image_hdu(function(error, image){
+		
+		if(error){
+		    result_cb("Bad things happened while reading image hdu : " + error);
+		    return;
+		}
+    
+		if(image){
+		    //var headers=f.get_headers(); console.log("FITS headers : \n" + JSON.stringify(headers, null, 4));
+		    
+		    
+		    //	image.histogram({ nbins: 350, cuts : [23,65] }, function(error, histo){
+		    image.histogram({}, function(error, histo){ //By default cuts are set to min,max and nbins to 200
+			
+			if(error)
+			    console.log("Histo error : " + error);
+			else{
+			    
+			    console.log("HISTO : " + JSON.stringify(histo));
+			    
+			    var colormap=[ [0,0,0,1,0], [1,0,1,1,.8], [1,.2,.2,1,.9], [1,1,1,1,1] ];
+
+			    
+			    var max=0,maxid=0, total=0, frac=.95, cf=0;
+			    for(var i=0;i<histo.data.length;i++){
+				var v=histo.data[i];
+				if(v>max){max=v;maxid=i;}
+				total+=v;
+			    }
+			    
+			    for(var i=0;i<histo.data.length;i++){
+				cf+=histo.data[i];
+				if(cf*1.0/total>=frac) break;
+			    }
+			    
+			    if(maxid-2>=0) maxid-=2;
+			    var cuts=[histo.start+maxid*histo.step,histo.start+i*histo.step];
+			    
+			    image.set_colormap(colormap);
+			    image.set_cuts(cuts);
+			    
+			    var fs=require("fs"),out;
+			    
+			    out = fs.createWriteStream(fpath+".small.jpeg");
+			    out.write(image.tile( { tile_coord :  [0,0], zoom :  0, tile_size : [128,128], type : "jpeg" }));
+			    out.end();
+			    
+			    out = fs.createWriteStream(fpath+".big.jpeg");
+			    out.write(image.tile( { tile_coord :  [0,0], zoom :  0, tile_size : [1024,1024], type : "jpeg" }));
+			    out.end();
+			    
+			    
+			}
+		    });
+		    
+		    
+		    console.log("End of fits callback!");
+		}
+	    });
 	});
     });
 }
@@ -279,7 +341,7 @@ var telescope_dictionary ={
 	target_name : "GOBJECT",
 	filter : "FILTER",
 	exptime : "EXPTIME",
-	date_obs : "DAT-OBS",
+	date_obs : "DATE-OBS",
 	target_ra : "RA",
 	target_dec : "DEC",
 	observer : "OBSERVER",
@@ -325,8 +387,8 @@ GLOBAL.handle_fits_file_keys=function(image_id, result_cb){
 		    
 		    if(error) throw error;
 
-		    		//console.log("Fits headers : " + JSON.stringify(fits_headers, null, 5));
-		
+		    console.log("Fits headers : " + JSON.stringify(fits_headers, null, 5));
+		    
 		    var telekey=fits_headers[0].keywords["TELESCOP"];
 		    if(typeof telekey=="undefined") 
 			throw "Mandatory FITS Key TELESCOP not found !"; 
@@ -349,9 +411,11 @@ GLOBAL.handle_fits_file_keys=function(image_id, result_cb){
 			
 			if(typeof telekeys[key]=="undefined") 
 			    throw "Mandatory keyword ["+teledic[key]+"] not found in ["+telename+"] FITS file !"; 
-			
-			telekeys[key] = telekeys[key].value.replace(/[']/g, "");
-			
+			if(typeof telekeys[key].value == "string")
+			    telekeys[key] = telekeys[key].value.replace(/[']/g, "");
+			else
+			    telekeys[key] = telekeys[key].value;
+
 			//console.log("B key ["+key+"]=["+telekeys[key]+"]");
 			
 			var kpp=keyword_postprocess[key];
@@ -544,19 +608,23 @@ post_handlers.gloria = {
 
 			handle_fits_file_download(id, function(err){
 			    if(err){
-				console.log("ERROR DOWNLOAD FILE : " + err);
-				return;
+				throw "ERROR DOWNLOAD FILE : " + err;
 			    }
 			    handle_fits_file_keys(id, function(err){
 				if(err){
-				    console.log("ERROR UPDATE KEYS : " + err);
-				    return;
+				    throw "ERROR UPDATE KEYS : " + err;
 				}else
-				    sql_cnx.query("update gloria_imgs set status='ok' where autoID="+id+";", function(err, result) {
+				    sqlut.sql_connect(function(err, sql_cnx) {
 					if(err){
-					    console.log("BUG: Error updating status in DB : " + err); 
-					    return;
+					    throw "Error connecting to MySQL : " + err; 
 					}
+
+					sql_cnx.query("update gloria_imgs set status='ok' where autoID="+id+";", function(err, result) {
+					    if(err){
+						throw "BUG: Error updating status in DB : " + err; 
+						
+					    }
+					});
 				    });
 			    });
 			});
@@ -589,8 +657,8 @@ post_handlers.gloria = {
 
 get_handlers.gloria = {
 
-
     test : {
+
 	process : function (query, request, res){
 
 	    create_jpeg(96, function(error, r){

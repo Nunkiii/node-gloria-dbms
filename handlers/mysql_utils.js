@@ -17,7 +17,7 @@ exports.sql_connect=function(result_cb) {
     exports.sql_cnx.connect(function(err) { 
 	if(err) {                   
 	    console.log('error when connecting to db:', err);
-	    setTimeout(sql_connect, 2000); 
+	    setTimeout(exports.sql_connect(function (){} ), 2000); 
 	}else{
             console.log("CNX OPEN, OK CNX id : " + exports.sql_cnx.threadId);
 	    result_cb(null, exports.sql_cnx);
@@ -27,7 +27,7 @@ exports.sql_connect=function(result_cb) {
     exports.sql_cnx.on('error', function(err) {
 	console.log('db error', err);
 	if(err.code === 'PROTOCOL_CONNECTION_LOST') { 
-	    sql_connect();                        
+	    exports.sql_connect(function (){});                        
 	} else {                                  
 	    result_cb(err);                            
 	}
