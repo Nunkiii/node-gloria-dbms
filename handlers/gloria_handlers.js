@@ -138,9 +138,8 @@ function create_jpeg(image_id, result_cb){
 			    console.log("HISTO : " + JSON.stringify(histo));
 			    
 			    var colormap=[ [0,0,0,1,0], [1,0,1,1,.8], [1,.2,.2,1,.9], [1,1,1,1,1] ];
-
-			    
 			    var max=0,maxid=0, total=0, frac=.95, cf=0;
+			    
 			    for(var i=0;i<histo.data.length;i++){
 				var v=histo.data[i];
 				if(v>max){max=v;maxid=i;}
