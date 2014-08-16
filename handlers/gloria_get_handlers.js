@@ -173,7 +173,7 @@ get_handlers.gloria = {
 			    if(!exists) 
 				return not_found("File was not found where it should have been");
 			    var mime_type = "image/fits";
-			    if(!msg)msg="Internal Server Error";
+			    
 			    var headers=cors_headers;
 			    headers.content_type=mime_type;
 			    res.writeHead(200, headers);
