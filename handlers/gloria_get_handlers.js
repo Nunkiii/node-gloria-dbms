@@ -1,8 +1,9 @@
-
+var fits = require('../../node-fits/build/Release/fits.node');
 var mysql = require('mysql');
 var path = require('path');
 var sqlut = require('./mysql_utils');
 var fs=require('fs');
+var DGM = require('../../sadira/www/js/datagram');
 
 var max_page_size = 10;
 
@@ -172,15 +173,42 @@ get_handlers.gloria = {
 			path.exists(filename, function(exists) {
 			    if(!exists) 
 				return not_found("File was not found where it should have been");
-			    var mime_type = "image/fits";
+			    var mime_type = "image/qkmat";
 			    
 			    var headers=cors_headers;
 			    headers.content_type=mime_type;
 			    res.writeHead(200, headers);
 
-			    var fileStream = fs.createReadStream(filename);
-			    fileStream.pipe(res);
-			    console.log("Data sent !");
+			    if(req.decode){
+				var f=new fits.file(filename);
+				
+				f.read_image_hdu(function(error, image_data){
+				    if(error==null){
+
+					var ab=image_data.get_data();
+					console.log("image bytes " + ab.length);
+					var header = {
+					    width : image_data.width(),
+					    height : image_data.height(),
+					    sz : ab.length,
+					    name : filename
+					};
+					var dgm= new DGM.datagram(header, ab);
+					dgm.serialize();
+					console.log("Writing bytes " + dgm.buffer.length);
+					res.write(dgm.buffer);
+					res.end();
+				    }
+				    else
+					return server_error(error);
+				});
+				
+			    }else{
+			    
+				var fileStream = fs.createReadStream(filename);
+				fileStream.pipe(res);
+				console.log("Data sent !");
+			    }
 			}); //end path.exists
 			
 			
