@@ -14,25 +14,19 @@ exports.init=function(pkg){
 
 function reply_gloria_error(res, msg, code){
     if(typeof code=='undefined') code=400;
-    res.writeHead(code, {
-	'Access-Control-Allow-Origin' : '*',
-	'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE',
-	'Access-Control-Allow-Headers': 'Content-Type',
-	'content-type': 'application/json'
-    });			    
+    var headers=cors_headers;
+    headers.content_type='application/json';
+    res.writeHead(code, headers);
     
     res.write(JSON.stringify({n : -1, error : msg}));
     res.end();
 }
 
 function reply_gloria(res,n, data){
-    res.writeHead(200, {
-	'Access-Control-Allow-Origin' : '*',
-	'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE',
-	'Access-Control-Allow-Headers': 'Content-Type',
-	'content-type': 'application/json'
-    });			    
-    
+    var headers=cors_headers;
+    headers.content_type='application/json';
+    res.writeHead(200, headers);
+
     res.write(JSON.stringify({n : n, data : data}));
     res.end();
 }
@@ -128,25 +122,18 @@ get_handlers.gloria = {
 	process : function (query, request, res){
 	    function not_found(msg){
 		if(!msg)msg="404 Not Found";
-		res.writeHead(404, {
-		    'Access-Control-Allow-Origin' : '*',
-		    'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE',
-		    'Access-Control-Allow-Headers': 'Content-Type',
-		    'content-type': 'text/plain'
-		});			    
+		var headers=cors_headers;
+		headers.content_type='text/plain';
+		res.writeHead(404, headers);
 
 		res.write(msg+'\n');
 		res.end();
 	    }
 	    function server_error(msg){
 		if(!msg)msg="Internal Server Error";
-		res.writeHead(500, {
-		    'Access-Control-Allow-Origin' : '*',
-		    'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE',
-		    'Access-Control-Allow-Headers': 'Content-Type',
-		    'content-type': 'text/plain'
-		});			    
-
+		var headers=cors_headers;
+		headers.content_type='text/plain';
+		res.writeHead(500, headers);
 		res.write(msg+'\n');
 		res.end();
 	    }
@@ -186,13 +173,11 @@ get_handlers.gloria = {
 			    if(!exists) 
 				return not_found("File was not found where it should have been");
 			    var mime_type = "image/fits";
-			    
-			    res.writeHead(200, {
-				'Access-Control-Allow-Origin' : '*',
-				'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE',
-				'Access-Control-Allow-Headers': 'Content-Type',
-				'content-type': mime_type
-			    });			    
+			    if(!msg)msg="Internal Server Error";
+			    var headers=cors_headers;
+			    headers.content_type=mime_type;
+			    res.writeHead(200, headers);
+
 			    var fileStream = fs.createReadStream(filename);
 			    fileStream.pipe(res);
 			    console.log("Data sent !");
