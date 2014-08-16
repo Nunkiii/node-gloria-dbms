@@ -2,6 +2,7 @@
 var mysql = require('mysql');
 var path = require('path');
 var sqlut = require('./mysql_utils');
+var fs=require('fs');
 
 var max_page_size = 10;
 
