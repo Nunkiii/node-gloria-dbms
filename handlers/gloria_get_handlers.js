@@ -2,6 +2,7 @@ var fits = require('../../node-fits/build/Release/fits.node');
 var mysql = require('mysql');
 var path = require('path');
 var sqlut = require('./mysql_utils');
+var gloria_uts = require('./gloria_utils');
 var fs=require('fs');
 var DGM = require('../../sadira/www/js/datagram');
 
@@ -141,8 +142,9 @@ get_handlers.gloria = {
 	    
 	    var req=query.req;
 	    if(typeof req=='undefined')
-		return not_found("No request");
+		return not_found("No request json block found");
 	    
+    
 	    try{
 		console.log("Get image : processing request " + req);
 		
@@ -151,7 +153,8 @@ get_handlers.gloria = {
 		if(typeof req.id=="undefined") {
 		    return not_found("No image id given");
 		}
-		
+		var image_type=req.type=='undefined'? "jsmat":req.type;
+
 		sqlut.sql_connect(function(err, sql_cnx) {
 
 		    if(err)
@@ -164,54 +167,117 @@ get_handlers.gloria = {
 			if(err){
 			    return server_error("Error getting URL from DB : " + err); 
 			}
-			//console.log("res = " + JSON.stringify(result));
-			var fpath=result[0].file_path+result[0].file_name;
-			//result_cb(null, "Image is="+JSON.stringify(fpath));
-			
-			var filename = fpath; //path.join(process.cwd(), uri);
-			console.log("--> Sending file " + filename );
-			path.exists(filename, function(exists) {
-			    if(!exists) 
-				return not_found("File was not found where it should have been");
-			    var mime_type = "image/qkmat";
-			    
-			    var headers=cors_headers;
-			    headers.content_type=mime_type;
-			    res.writeHead(200, headers);
 
-			    if(req.decode){
-				var f=new fits.file(filename);
+			switch(image_type){
+			default :  return not_found("Invalid image " + image_type); break;
+			case "jsmat" : 
+			    //console.log("res = " + JSON.stringify(result));
+			    var fpath=result[0].file_path+result[0].file_name;
+			    //result_cb(null, "Image is="+JSON.stringify(fpath));
+			    var filename = fpath; //path.join(process.cwd(), uri);
+			    console.log("--> Sending file " + filename );
+			    path.exists(filename, function(exists) {
+				if(!exists) 
+				    return not_found("File was not found where it should have been");
+				var mime_type = "image/qkmat";
 				
-				f.read_image_hdu(function(error, image_data){
-				    if(error==null){
-
-					var ab=image_data.get_data();
-					console.log("image bytes " + ab.length);
-					var header = {
-					    width : image_data.width(),
-					    height : image_data.height(),
-					    sz : ab.length,
-					    name : filename
-					};
-					var dgm= new DGM.datagram(header, ab);
-					dgm.serialize();
-					console.log("Writing bytes " + dgm.buffer.length);
-					res.write(dgm.buffer);
-					res.end();
-				    }
-				    else
-					return server_error(error);
-				});
+				var headers=cors_headers;
+				headers.content_type=mime_type;
+				res.writeHead(200, headers);
 				
-			    }else{
-			    
+				if(req.decode){
+				    var f=new fits.file(filename);
+				    
+				    f.read_image_hdu(function(error, image_data){
+					if(error==null){
+					    
+					    var ab=image_data.get_data();
+					    console.log("image bytes " + ab.length);
+					    var header = {
+						width : image_data.width(),
+						height : image_data.height(),
+						sz : ab.length,
+						name : filename
+					    };
+					    var dgm= new DGM.datagram(header, ab);
+					    dgm.serialize();
+					    console.log("Writing bytes " + dgm.buffer.length);
+					    res.write(dgm.buffer);
+					    res.end();
+					}
+					else
+					    return server_error(error);
+				    });
+				    
+				}else{
+				    
+				    var fileStream = fs.createReadStream(filename);
+				    fileStream.pipe(res);
+				    console.log("Data sent !");
+				}
+			    }); //end path.exists
+			    break;
+			case "fits":
+			    var fpath=result[0].file_path+result[0].file_name;
+			    //result_cb(null, "Image is="+JSON.stringify(fpath));
+			    var filename = fpath; //path.join(process.cwd(), uri);
+			    console.log("--> Sending file " + filename );
+			    path.exists(filename, function(exists) {
+				if(!exists) 
+				    return not_found("File was not found where it should have been");
+				var mime_type = "image/fits";
+				
+				var headers=cors_headers;
+				headers.content_type=mime_type;
+				res.writeHead(200, headers);
 				var fileStream = fs.createReadStream(filename);
 				fileStream.pipe(res);
-				console.log("Data sent !");
+			    });
+			    break;
+			case "jpeg":
+
+			    var jpeg_type=req.jpeg_type=='undefined'? "small":req.jpeg_type;
+
+			    var fpath=result[0].file_path+result[0].file_name+"."+jpeg_type+".jpeg";
+			    //result_cb(null, "Image is="+JSON.stringify(fpath));
+			    var filename = fpath; //path.join(process.cwd(), uri);
+			    console.log("--> Sending file " + filename );
+
+			    
+			    function send_image(){
+				var mime_type = "image/jpeg";
+				var headers=cors_headers;
+				headers.content_type=mime_type;
+				res.writeHead(200, headers);
+				var fileStream = fs.createReadStream(filename);
+				fileStream.pipe(res);
 			    }
-			}); //end path.exists
-			
-			
+
+			    path.exists(filename, function(exists) {
+				if(!exists){
+
+				    //Trying to create jpeg if the file doesn't exist.
+				    
+				    gloria_uts.create_jpeg(req.id, [{}],  function(error, r){
+					if(error){
+					    return not_found("Error creating jpeg snapshot : " + error);
+					}else{
+					    path.exists(filename, function(exists) {
+						if(!exists){
+						    return not_found("JPEG file still not found after generation (bug?)");
+						}else{
+						    send_image();
+						}
+						
+					    });
+					}
+				    });
+				}else send_image();
+				
+			    });
+
+			    break;
+			}
 		    });
 		});
 		

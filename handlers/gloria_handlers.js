@@ -1,6 +1,7 @@
 var formidable = require('formidable');
 var mysql = require('mysql');
 var sqlut = require('./mysql_utils');
+var gloria_uts = require('./gloria_utils');
 
 var fs = require('fs');
 var url = require('url');
@@ -88,15 +89,22 @@ function record_gloria_mysql(table_name, image_header, result_cb){
 }
 
 
-function create_jpeg(image_id, result_cb){
+function create_jpeg(image_id, configs, result_cb){
     
     console.log("Analysing downloaded FITS file....");
     
+    for(c=0;c<configs.length;c++){
+	var cfg=configs[c];
+
+	if(typeof cfg.size === 'undefined') cfg.size=[128,0];
+	if(typeof cfg.tag === 'undefined') cfg.tag="small";
+	if(typeof cfg.colormap === 'undefined') cfg.colormap=[ [0,0,0,1,0], [1,0,1,1,.8], [1,.2,.2,1,.9], [1,1,1,1,1] ];
+	if(typeof cfg.cuts_frac === 'undefined') cfg.cuts_frac=0.97;
+    }
+
     var http = require('http');
     var fs = require('fs');
 
-    var file_name= Math.random().toString(36).substring(2) + ".fits";
-    
     sqlut.sql_connect(function(err, sql_cnx) {
 
 	if(err){
@@ -127,6 +135,7 @@ function create_jpeg(image_id, result_cb){
 		if(image){
 		    //var headers=f.get_headers(); console.log("FITS headers : \n" + JSON.stringify(headers, null, 4));
 		    
+		    var dims=[image.width(), image.height()];
 		    
 		    //	image.histogram({ nbins: 350, cuts : [23,65] }, function(error, histo){
 		    image.histogram({}, function(error, histo){ //By default cuts are set to min,max and nbins to 200
@@ -137,36 +146,48 @@ function create_jpeg(image_id, result_cb){
 			    
 			    console.log("HISTO : " + JSON.stringify(histo));
 			    
-			    var colormap=[ [0,0,0,1,0], [1,0,1,1,.8], [1,.2,.2,1,.9], [1,1,1,1,1] ];
-			    var max=0,maxid=0, total=0, frac=.95, cf=0;
-			    
-			    for(var i=0;i<histo.data.length;i++){
-				var v=histo.data[i];
-				if(v>max){max=v;maxid=i;}
-				total+=v;
+			    for(c=0;c<configs.length;c++){
+				var cfg=configs[c];
+				
+				
+				var colormap=cfg.colormap;
+				var max=0,maxid=0, total=0, frac=cfg.cuts_frac, cf=0;
+				
+				for(var i=0;i<histo.data.length;i++){
+				    var v=histo.data[i];
+				    if(v>max){max=v;maxid=i;}
+				    total+=v;
+				}
+				
+				for(var i=0;i<histo.data.length;i++){
+				    cf+=histo.data[i];
+				    if(cf*1.0/total>=frac) break;
+				}
+				
+				if(maxid-2>=0) maxid-=2;
+				var cuts=[histo.start+maxid*histo.step,histo.start+i*histo.step];
+				
+				image.set_colormap(colormap);
+				image.set_cuts(cuts);
+				
+				var out = fs.createWriteStream(fpath+"."+cfg.tag+".jpeg");
+
+				var tile_size=[];
+				if(cfg.size[0] == 0){
+				    
+				    if(cfg.size[1] == 0){ //Using original image dimensions
+					tile_size=dims;
+				    }else{ //
+					tile_size=[ Math.floor( dims[0]*1.0/dims[1]*cfg.size[1] )  , cfg.size[1]];
+					
+				    }
+
+				}else
+				    tile_size=[  cfg.size[0], Math.floor( dims[1]*1.0/dims[0]*cfg.size[0] )];
+
+				out.write(image.tile( { tile_coord :  [0,0], zoom :  0, tile_size : tile_size, type : "jpeg" }));
+				out.end();
 			    }
-			    
-			    for(var i=0;i<histo.data.length;i++){
-				cf+=histo.data[i];
-				if(cf*1.0/total>=frac) break;
-			    }
-			    
-			    if(maxid-2>=0) maxid-=2;
-			    var cuts=[histo.start+maxid*histo.step,histo.start+i*histo.step];
-			    
-			    image.set_colormap(colormap);
-			    image.set_cuts(cuts);
-			    
-			    var fs=require("fs"),out;
-			    
-			    out = fs.createWriteStream(fpath+".small.jpeg");
-			    out.write(image.tile( { tile_coord :  [0,0], zoom :  0, tile_size : [128,128], type : "jpeg" }));
-			    out.end();
-			    
-			    out = fs.createWriteStream(fpath+".big.jpeg");
-			    out.write(image.tile( { tile_coord :  [0,0], zoom :  0, tile_size : [1024,1024], type : "jpeg" }));
-			    out.end();
-			    
 			    
 			}
 		    });
@@ -660,7 +681,7 @@ get_handlers.gloria = {
 
 	process : function (query, request, res){
 
-	    create_jpeg(96, function(error, r){
+	    gloria_uts.create_jpeg(96, [{}],  function(error, r){
 		res.writeHead(200, {'content-type': 'text/plain'});
 
 		if(error != null)
