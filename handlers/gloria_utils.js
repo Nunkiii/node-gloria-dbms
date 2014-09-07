@@ -12,8 +12,8 @@ exports.create_jpeg=function(image_id, configs, result_cb){
 
 	if(typeof cfg.size === 'undefined') cfg.size=[128,0];
 	if(typeof cfg.tag === 'undefined') cfg.tag="small";
-	if(typeof cfg.colormap === 'undefined') cfg.colormap=[ [0,0,0,1,0], [1,0,1,1,.8], [1,.2,.2,1,.9], [1,1,1,1,1] ];
-	if(typeof cfg.cuts_frac === 'undefined') cfg.cuts_frac=0.97;
+	if(typeof cfg.colormap === 'undefined') cfg.colormap=[ [0,0,0,1,0], [.5,1.0,.5,1,.8], [1,1,1,1,1] ];
+	if(typeof cfg.cuts_frac === 'undefined') cfg.cuts_frac=0.99;
     }
 
     var http = require('http');
@@ -53,13 +53,13 @@ exports.create_jpeg=function(image_id, configs, result_cb){
 			var dims=[image.width(), image.height()];
 			
 			//	image.histogram({ nbins: 350, cuts : [23,65] }, function(error, histo){
-			image.histogram({}, function(error, histo){ //By default cuts are set to min,max and nbins to 200
+			image.histogram({nbins : 1024}, function(error, histo){ //By default cuts are set to min,max and nbins to 200
 			    
 			    if(error)
 				console.log("Histo error : " + error);
 			    else{
 				
-				console.log("HISTO : " + JSON.stringify(histo));
+				//console.log("HISTO : " + JSON.stringify(histo));
 				
 				for(c=0;c<configs.length;c++){
 				    var cfg=configs[c];
@@ -104,6 +104,7 @@ exports.create_jpeg=function(image_id, configs, result_cb){
 				    out.end();
 				}
 				
+				result_cb(null,"ok");
 			    }
 			});
 			

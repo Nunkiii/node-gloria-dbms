@@ -153,7 +153,7 @@ get_handlers.gloria = {
 		if(typeof req.id=="undefined") {
 		    return not_found("No image id given");
 		}
-		var image_type=req.type=='undefined'? "jsmat":req.type;
+		var image_type=typeof req.type=='undefined'? "jsmat":req.type;
 
 		sqlut.sql_connect(function(err, sql_cnx) {
 
@@ -185,7 +185,7 @@ get_handlers.gloria = {
 				headers.content_type=mime_type;
 				res.writeHead(200, headers);
 				
-				if(req.decode){
+	//			if(req.decode){
 				    var f=new fits.file(filename);
 				    
 				    f.read_image_hdu(function(error, image_data){
@@ -209,12 +209,12 @@ get_handlers.gloria = {
 					    return server_error(error);
 				    });
 				    
-				}else{
+				// }else{
 				    
-				    var fileStream = fs.createReadStream(filename);
-				    fileStream.pipe(res);
-				    console.log("Data sent !");
-				}
+				//     var fileStream = fs.createReadStream(filename);
+				//     fileStream.pipe(res);
+				//     console.log("Data sent !");
+				// }
 			    }); //end path.exists
 			    break;
 			case "fits":
@@ -236,7 +236,7 @@ get_handlers.gloria = {
 			    break;
 			case "jpeg":
 
-			    var jpeg_type=req.jpeg_type=='undefined'? "small":req.jpeg_type;
+			    var jpeg_type= typeof(req.jpeg_type) =='undefined'? "small":req.jpeg_type;
 
 			    var fpath=result[0].file_path+result[0].file_name+"."+jpeg_type+".jpeg";
 			    //result_cb(null, "Image is="+JSON.stringify(fpath));
@@ -254,12 +254,12 @@ get_handlers.gloria = {
 			    }
 
 			    path.exists(filename, function(exists) {
-				if(!exists){
+				if(true){//!exists){
 
 				    //Trying to create jpeg if the file doesn't exist.
 				    
 				    gloria_uts.create_jpeg(req.id, [{}],  function(error, r){
-					if(error){
+					if(error!=null){
 					    return not_found("Error creating jpeg snapshot : " + error);
 					}else{
 					    path.exists(filename, function(exists) {
