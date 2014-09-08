@@ -7,11 +7,50 @@ Image database services for the GLORIA project.
 
 Image submission to the SQL database is done by the mean of an HTTP POST message. 
 
+
+####Examples
+
+#####HTML form
+
+	  <form action="https://sadira.iasfbo.inaf.it:8888/gloria/submit" enctype="multipart/form-data" method="post">
+	  	<input type="text" name="json_header" value='{
+  	  	       "telescop": "BOOTES-3",
+  	  	       "instrume": "COLORES",
+  	  	       "exptime": 10,
+  	  	       "experiment": "Night",
+  	  	       "experimentid": "Nearby Galaxies observations",
+  	  	       "reservationid": 12345678,
+  	  	       "user": "GLORIA_observer",
+  	  	       "password": "the_encrypted_password",
+  	  	       "url": "http://..."
+	  	 }'>
+		<input type="submit" value="Send to DB"/>
+
+	  </form>
+
+
+#####Python
+
+Example python code.
+
+	import urllib3
+	
+	url = "http://sadira.iasfbo.inaf.it:9999/gloria/submit"
+
+       	jheaders = '''{                                                                                                                                       "experiment" : "Night",                                                                                                                               "experimentid" : "Nearby Galaxies observations",                                                                                                      "reservationid": 12345678,                                                                                                                            "user" : "GLORIA_observer",                                                                                                                           "password" : "the_encrypted_password",                                                                                                                "url": "http://xyz.com/a.fits"                                                                                                                        }'''
+
+       	http = urllib3.PoolManager()
+
+       	post_data = {}
+       	post_data['json_header'] = jheaders
+
+       	request = http.request('POST', url, post_data)
+
 ###HTTP/GET interface 
 
 To operate within Gloria, the sadira server, must be able to respond to standard AJAX (GET) requests.  to be embeddedable in non-websocket aware environment and also to conform with the specs. For the Gloria 'get interface', the server must respond to a query url with a *single* buffer of binary data, containing both image metadata (width, height, name, etc...) and binary pixel data.
 
-####gloria/query_image
+####gloria/query_images
 
 ####gloria/get_image
 
