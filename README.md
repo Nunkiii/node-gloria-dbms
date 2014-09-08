@@ -5,12 +5,13 @@ Image database services for the GLORIA project.
 
 ###HTTP/POST interface 
 
-Image submission to the SQL database is done by the mean of an HTTP POST message. 
-
+Image submission to the SQL database is done by the mean of a `multipart/form-data` HTTP POST request. 
 
 ####Examples
 
 #####HTML form
+
+Example HTML code
 
 	  <form action="https://sadira.iasfbo.inaf.it:8888/gloria/submit" enctype="multipart/form-data" method="post">
 	  	<input type="text" name="json_header" value='{
@@ -23,7 +24,7 @@ Image submission to the SQL database is done by the mean of an HTTP POST message
   	  	       "user": "GLORIA_observer",
   	  	       "password": "the_encrypted_password",
   	  	       "url": "http://..."
-	  	 }'>
+	  	 }'/>
 		<input type="submit" value="Send to DB"/>
 
 	  </form>
@@ -37,7 +38,14 @@ Example python code.
 	
 	url = "http://sadira.iasfbo.inaf.it:9999/gloria/submit"
 
-       	jheaders = '''{                                                                                                                                       "experiment" : "Night",                                                                                                                               "experimentid" : "Nearby Galaxies observations",                                                                                                      "reservationid": 12345678,                                                                                                                            "user" : "GLORIA_observer",                                                                                                                           "password" : "the_encrypted_password",                                                                                                                "url": "http://xyz.com/a.fits"                                                                                                                        }'''
+       	jheaders = '''{                                                                                                                              
+         "experiment" : "Night",                                                                                                                     
+ 	 "experimentid" : "Nearby Galaxies observations",                                                                                           
+         "reservationid": 12345678,                                                                                                                
+         "user" : "GLORIA_observer",                                                                                                              
+         "password" : "the_encrypted_password",                                                                                                  
+         "url": "http://xyz.com/a.fits"                                                                                                         
+        }'''
 
        	http = urllib3.PoolManager()
 
