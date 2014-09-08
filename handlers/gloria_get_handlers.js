@@ -254,7 +254,7 @@ get_handlers.gloria = {
 			    }
 
 			    path.exists(filename, function(exists) {
-				if(true){//!exists){
+				if(!exists){
 
 				    //Trying to create jpeg if the file doesn't exist.
 				    
