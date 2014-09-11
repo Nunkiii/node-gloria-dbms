@@ -582,15 +582,30 @@ post_handlers.gloria = {
 	    return;
 	*/		    
 	    
+
+
+	    function return_error(e, error_id){
+		res.writeHead(200, {'content-type': 'text/plain'});
+		var error="" + e;
+		if(typeof error_id === 'undefined') error_id=1;
+		res.write(JSON.stringify({ status: "error", error_message:  error, error_id : error_id })) ;
+		res.end();			
+		console.log(error);
+	    }
+
 	    var form = new formidable.IncomingForm({ uploadDir : upload_dir});
 	    
 	    form.parse(request, function(err, fields, files) {
-
+		
 		try{
+
 		    if(err) throw 'POST parse error ' + err;
 		    
+		    //console.log("Received fields " + JSON.stringify(fields, null, 4));
+		    //console.log("Received files " + JSON.stringify(files, null, 4));
+		    
 		    if(typeof fields.json_header == 'undefined') throw "No json_header field !";
-
+		    
 		    var js_head=JSON.parse(fields.json_header);
 		    console.log("REceived header " + JSON.stringify(js_head, null, 4));
 		    
@@ -614,37 +629,28 @@ post_handlers.gloria = {
 		    
 		    record_gloria_mysql("gloria_imgs", new_entry, function (e, id){
 			if(e!=null){
-			    res.writeHead(200, {'content-type': 'text/plain'});
-			    var error="" + e;
-			    res.write(JSON.stringify({ status: "error", error_message:  error })) ;
-			    res.end();			
-			    return;
+			    return return_error(e);
 			}
 			res.write( JSON.stringify( { status :  'ok', id : id, error_id : 0 })) ;
 			res.end();	
 
-			
-			
-
 			handle_fits_file_download(id, function(err){
 			    if(err){
-				throw "ERROR DOWNLOAD FILE : " + err;
+				console.log("ERROR DOWNLOAD FILE : " + err);
 			    }
 			    handle_fits_file_keys(id, function(err){
 				if(err){
-				    throw "ERROR UPDATE KEYS : " + err;
+				    console.log("ERROR UPDATE KEYS : " + err);
 				}else
 				    sqlut.sql_connect(function(err, sql_cnx) {
 					if(err){
-					    throw "Error connecting to MySQL : " + err; 
-					}
-
-					sql_cnx.query("update gloria_imgs set status='ok' where autoID="+id+";", function(err, result) {
-					    if(err){
-						throw "BUG: Error updating status in DB : " + err; 
-						
-					    }
-					});
+					    console.log("Error connecting to MySQL : " + err); 
+					}else
+					    sql_cnx.query("update gloria_imgs set status='ok' where autoID="+id+";", function(err, result) {
+						if(err){
+						    console.log("BUG: Error updating status in DB : " + err); 
+						}
+					    });
 				    });
 			    });
 			});
@@ -658,12 +664,7 @@ post_handlers.gloria = {
 		    
 		}
 		catch (e){
-		    res.writeHead(200, {'content-type': 'text/plain'});
-		    var error="" + e;
-		    var error_id=1;
-		    res.write(JSON.stringify({ status: "error", error_message:  error, error_id : error_id })) ;
-		    res.end();			
-		    console.log(error);
+		    return_error(e);
 		}
 		
 		console.log("End of form parse...");
