@@ -1,5 +1,6 @@
 var mysql = require('mysql');
 
+
 exports.sql_server_opts={};
 exports.sql_cnx=null;
 exports.sql_connect=function(result_cb) {
@@ -32,4 +33,53 @@ exports.sql_connect=function(result_cb) {
 	    result_cb(err);                            
 	}
     });
+}
+
+exports.query=function(q, cb){
+    exports.sql_connect(function(err, sql_cnx) {
+	if(err)
+	    return result_cb("Error connecting to MySQL : " + err); 
+	var query = sql_cnx.query(q,function(err, result) {
+	    if(err){
+		return cb(err); 
+	    }
+	    else {
+		cb(null, result);
+	    }
+	});
+	
+	//console.log(query.sql);
+    });
+}
+
+exports.create_template=function(table, cb){
+    exports.query("select * from "+table+" limit 1", function(error, result){
+	//console.log("Result is : " + JSON.stringify(result));
+	if(error) return cb(error);
+	var r=result[0];
+	var tpl={table: table, elements : {}};
+	Object.keys(r).forEach(function(f){
+	    var o=r[f];
+	    var otype=o.constructor.name;
+	    switch(otype){
+	    case "Number":
+		tpl.elements[f]={ type : "double", value : o};
+		break;
+	    case "String":
+		tpl.elements[f]={ type : "string", value : o};
+		break;
+	    case "Date":
+		tpl.elements[f]={ type : "date", value : o};
+		break;
+	    case "Buffer":
+	    default:
+		console.log("Unhandled column type " + otype);
+		break;
+	    };
+	    //console.log("field ["+f+"] :  " + o + " type " + typeof o + " date ? " + (o instanceof Date) + " consname " + o.constructor.name );
+	});
+	
+	cb(null,tpl);
+    });
+    
 }

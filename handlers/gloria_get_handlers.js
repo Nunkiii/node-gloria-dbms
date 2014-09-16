@@ -18,8 +18,8 @@ function reply_gloria_error(res, msg, code){
     if(typeof code=='undefined') code=400;
     var headers=cors_headers;
     headers.content_type='application/json';
+
     res.writeHead(code, headers);
-    
     res.write(JSON.stringify({n : -1, error : msg}));
     res.end();
 }
@@ -33,7 +33,7 @@ function reply_gloria(res,n, data){
     res.end();
 }
 
-get_handlers.gloria = {
+GLOBAL.get_handlers.gloria = {
     
     query_images : {
 
@@ -41,13 +41,14 @@ get_handlers.gloria = {
 
 	    //return reply_gloria_error(res, "Fausse erreurrre hein!");
 	    var req=query.req;
+
 	    if(typeof req=='undefined')
 		req="{}";
 	    
 	    try{
-		console.log("processing request " + req);
 		
 		req = JSON.parse(req);
+		console.log("processing request " + JSON.stringify(req));
 		
 		sqlut.sql_connect(function(err, sql_cnx) {
 		    if(err){

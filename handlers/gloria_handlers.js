@@ -10,11 +10,22 @@ var fits = require('../../node-fits/build/Release/fits.node');
 
 var submit_opts, upload_dir;
 
+
 exports.init=function(pkg){
     console.log("gloria dbms init pkg ! " + JSON.stringify(pkg.opts.sql_server_opts));
     sqlut.sql_server_opts=pkg.opts.sql_server_opts;
     submit_opts=pkg.opts.submit;
     upload_dir = pkg.opts.upload_dir;
+    
+
+    sqlut.create_template("gloria_imgs", function(error, result){
+	if(error){
+	    console.log("Error ! " + error) ;
+	}else
+	    console.log("Template  : " + JSON.stringify(result));
+    });
+
+
 }
 
 function parse_date(key){
@@ -676,6 +687,8 @@ post_handlers.gloria = {
     }
 }
 
+/*
+
 get_handlers.gloria = {
 
     test : {
@@ -756,3 +769,5 @@ get_handlers.gloria = {
     }
     
 };
+
+*/
