@@ -84,7 +84,7 @@ GLOBAL.get_handlers.gloria = {
 		    
 		    var qs='select count(*) as n from gloria_imgs';
 		    //console.log("Ok, inserting ["+  JSON.stringify(image_header) +"]");
-		    var query = sql_cnx.query('select count(*) as n from gloria_imgs', function(err, result) {
+		    var query = sql_cnx.query("select count(*) as n from gloria_imgs where status='ok'", function(err, result) {
 			
 			if(err)return reply_gloria_error(res, "DB query error : " + err); 
 			var n=result[0].n;
@@ -171,6 +171,7 @@ GLOBAL.get_handlers.gloria = {
 
 			switch(image_type){
 			default :  return not_found("Invalid image " + image_type); break;
+			    
 			case "jsmat" : 
 			    //console.log("res = " + JSON.stringify(result));
 			    var fpath=result[0].file_path+result[0].file_name;
@@ -186,29 +187,31 @@ GLOBAL.get_handlers.gloria = {
 				headers.content_type=mime_type;
 				res.writeHead(200, headers);
 				
-	//			if(req.decode){
-				    var f=new fits.file(filename);
-				    
+				//			if(req.decode){
+				var f=new fits.file(filename);
+				
+				f.get_headers(function(error, headers){
+				    if(error!=null)return server_error(error);
+
 				    f.read_image_hdu(function(error, image_data){
-					if(error==null){
-					    
-					    var ab=image_data.get_data();
-					    console.log("image bytes " + ab.length);
-					    var header = {
-						width : image_data.width(),
-						height : image_data.height(),
-						sz : ab.length,
-						name : filename
-					    };
-					    var dgm= new DGM.datagram(header, ab);
-					    dgm.serialize();
-					    console.log("Writing bytes " + dgm.buffer.length);
-					    res.write(dgm.buffer);
-					    res.end();
-					}
-					else
-					    return server_error(error);
+					if(error!=null)return server_error(error);
+
+					var ab=image_data.get_data();
+					console.log("image bytes " + ab.length);
+					var header = {
+					    width : image_data.width(),
+					    height : image_data.height(),
+					    sz : ab.length,
+					    name : filename,
+					    fits_keys : headers[0].keywords
+					};
+					var dgm= new DGM.datagram(header, ab);
+					dgm.serialize();
+					console.log("Writing bytes " + dgm.buffer.length);
+					res.write(dgm.buffer);
+					res.end();
 				    });
+				});
 				    
 				// }else{
 				    
