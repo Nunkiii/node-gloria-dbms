@@ -1,22 +1,27 @@
 var formidable = require('formidable');
 var mysql = require('mysql');
-var sqlut = require('./mysql_utils');
+var sqlut = require('../sadira/js/mysql_utils');
 var gloria_uts = require('./gloria_utils');
-
 var fs = require('fs');
 var url = require('url');
 var sys = require('sys');
 var fits = require('../../node-fits/build/Release/fits.node');
 
 var submit_opts, upload_dir;
+var gloriadb;
 
+//date_obs > '2014-1-01' and (dithid = 0 or dithid=99) and exptime > 10
 
 exports.init=function(pkg){
-    console.log("gloria dbms init pkg ! " + JSON.stringify(pkg.opts.sql_server_opts));
-    sqlut.sql_server_opts=pkg.opts.sql_server_opts;
+
+    console.log("GLORIA dbms init ! ");
+
+    gloriadb=new sqlut.sql(pkg.opts.sql_server_opts);
+
     submit_opts=pkg.opts.submit;
     upload_dir = pkg.opts.upload_dir;
     
+    return;
 
     sqlut.create_template("gloria_imgs", function(error, result){
 	if(error){
@@ -24,19 +29,17 @@ exports.init=function(pkg){
 	}else
 	    console.log("Template  : " + JSON.stringify(result));
     });
-
-
 }
 
 function parse_date(key){
     var d=new Date(key); 
-    console.log("parsed date ["+key+"] : "  + d);
+  //  console.log("parsed date ["+key+"] : "  + d);
     if(d=="Invalid Date") throw ("Invalid date given"); 
     return d;
 }
 
 function parse_number(key){
-    console.log(JSON.stringify(key) + " + key type " + typeof(key));
+//    console.log(JSON.stringify(key) + " + key type " + typeof(key));
     if(typeof key == "number") return key;
     var n=new Number(key); if(isNaN(n)) throw "invalid numerical value given"; 
     return n*1.0;
@@ -74,7 +77,7 @@ function record_image_mongo(collection_name, image_header, result_cb){
 function record_gloria_mysql(table_name, image_header, result_cb){
     
 
-    sqlut.sql_connect(function(err, sql_cnx) {
+    gloriadb.sql_connect(function(err, sql_cnx) {
 	if(err){
 	    result_cb("Error connecting to MySQL : " + err); 
 	    return;
@@ -102,7 +105,7 @@ function record_gloria_mysql(table_name, image_header, result_cb){
 
 function create_jpeg(image_id, configs, result_cb){
     
-    console.log("Analysing downloaded FITS file....");
+    console.log("Creating JPEG for FITS file....");
     
     for(c=0;c<configs.length;c++){
 	var cfg=configs[c];
@@ -116,14 +119,14 @@ function create_jpeg(image_id, configs, result_cb){
     var http = require('http');
     var fs = require('fs');
 
-    sqlut.sql_connect(function(err, sql_cnx) {
+    gloriadb.sql_connect(function(err, sql_cnx) {
 
 	if(err){
 	    result_cb("Error connecting to MySQL : " + err); 
 	    return;
 	}
 	
-	var qs="select file_path, file_name from gloria_imgs where autoID="+sql_cnx.escape(image_id)+";";
+	var qs="select file_name from gloria_imgs where autoID="+sql_cnx.escape(image_id)+";";
 
 	sql_cnx.query(qs, function(err, result) {
 	    if(err){
@@ -131,7 +134,7 @@ function create_jpeg(image_id, configs, result_cb){
 		return;
 	    }
 	    //console.log("res = " + JSON.stringify(result));
-	    var fpath=result[0].file_path+"/"+result[0].file_name;
+	    var fpath=upload_dir+"/"+result[0].file_name;
 	    result_cb(null, "Image is="+JSON.stringify(fpath));
 	    
 	    var f = new fits.file(fpath);
@@ -214,13 +217,13 @@ function create_jpeg(image_id, configs, result_cb){
 
 GLOBAL.handle_fits_file_download=function(image_id, result_cb){
     
-    console.log("Analysing downloaded FITS file....");
+    console.log("Downloading FITS file....");
     
     var http = require('http');
     var fs = require('fs');
     var file_name= Math.random().toString(36).substring(2) + ".fits";
     
-    sqlut.sql_connect(function(err, sql_cnx) {
+    gloriadb.sql_connect(function(err, sql_cnx) {
 	if(err){
 	    result_cb("Error connecting to MySQL : " + err); 
 	    return;
@@ -378,7 +381,7 @@ var telescope_dictionary ={
 	observer : "OBSERVER",
 	instrument : "INSTRUME"
     },
-  "'REM     '" : {
+    "'REM     '" : {
 	target_name : "OBJECT",
 	filter : "FILTER",
 	exptime : "EXPTIME",
@@ -387,9 +390,20 @@ var telescope_dictionary ={
 	target_dec : "DEC",
 	observer : "OBSERVER",
 	instrument : "INSTRUME"
-  }
-    
-
+    },
+    "'IT-0.6  '" : {
+	target_name : "OBJECT",
+	filter : "FILTER",
+	exptime : "EXPTIME",
+	date_obs : "DATE-OBS",
+	target_ra : "RA",
+	target_dec : "DEC",
+	observer : "OBSERVER",
+	instrument : "INSTRUME"
+    }
+	
+	
+	
 };
 
 
@@ -397,7 +411,7 @@ GLOBAL.handle_fits_file_keys=function(image_id, result_cb){
 
     console.log("Analysing FITS keywords...");
     
-    sqlut.sql_connect(function(err, sql_cnx) {
+    gloriadb.sql_connect(function(err, sql_cnx) {
 	if(err){
 	    result_cb("Error connecting to MySQL : " + err); 
 	    return;
@@ -418,7 +432,7 @@ GLOBAL.handle_fits_file_keys=function(image_id, result_cb){
 		    
 		    if(error) throw error;
 
-		    console.log("Fits headers : " + JSON.stringify(fits_headers, null, 5));
+		    //console.log("Fits headers : " + JSON.stringify(fits_headers, null, 5));
 		    
 		    var telekey=fits_headers[0].keywords["TELESCOP"];
 		    if(typeof telekey=="undefined") 
@@ -480,6 +494,7 @@ GLOBAL.handle_fits_file_keys=function(image_id, result_cb){
 			    });
 			    return;
 			}
+			console.log("OK!");
 			result_cb(null);
 		    });
 		    
@@ -572,12 +587,15 @@ post_handlers.gloria = {
     
     submit : {
 	
-	process : function (query, request, res){
+	process : function ( req, res, cb){
+	    
+	    console.log("GLORIA SUBMIT handler....");
 
-
+	    var query = get_json_parameters(req);
+	
 	    console.log("GLORIA SUBMIT Received query : " + JSON.stringify(query));
-	    //console.log("OK?");
-
+	    
+	    cb(null);
 
 	    res.writeHead(200, {
 		'Access-Control-Allow-Origin' : '*',
@@ -592,9 +610,6 @@ post_handlers.gloria = {
 	    res.end();			
 	    return;
 	*/		    
-	    
-
-
 	    function return_error(e, error_id){
 		res.writeHead(200, {'content-type': 'text/plain'});
 		var error="" + e;
@@ -606,7 +621,7 @@ post_handlers.gloria = {
 
 	    var form = new formidable.IncomingForm({ uploadDir : upload_dir});
 	    
-	    form.parse(request, function(err, fields, files) {
+	    form.parse(req, function(err, fields, files) {
 		
 		try{
 
@@ -615,7 +630,7 @@ post_handlers.gloria = {
 		    //console.log("Received fields " + JSON.stringify(fields, null, 4));
 		    //console.log("Received files " + JSON.stringify(files, null, 4));
 		    
-		    if(typeof fields.json_header == 'undefined') throw "No json_header field !";
+		    if(typeof fields.json_header === 'undefined') throw "No json_header field !";
 		    
 		    var js_head=JSON.parse(fields.json_header);
 		    console.log("REceived header " + JSON.stringify(js_head, null, 4));
@@ -644,26 +659,26 @@ post_handlers.gloria = {
 			}
 			res.write( JSON.stringify( { status :  'ok', id : id, error_id : 0 })) ;
 			res.end();	
-
+			
 			handle_fits_file_download(id, function(err){
 			    if(err){
 				console.log("ERROR DOWNLOAD FILE : " + err);
-			    }
-			    handle_fits_file_keys(id, function(err){
-				if(err){
-				    console.log("ERROR UPDATE KEYS : " + err);
-				}else
-				    sqlut.sql_connect(function(err, sql_cnx) {
-					if(err){
-					    console.log("Error connecting to MySQL : " + err); 
-					}else
-					    sql_cnx.query("update gloria_imgs set status='ok' where autoID="+id+";", function(err, result) {
-						if(err){
-						    console.log("BUG: Error updating status in DB : " + err); 
-						}
-					    });
-				    });
-			    });
+			    }else
+				handle_fits_file_keys(id, function(err){
+				    if(err){
+					console.log("ERROR UPDATE KEYS : " + err);
+				    }else
+					gloriadb.sql_connect(function(err, sql_cnx) {
+					    if(err){
+						console.log("Error connecting to MySQL : " + err); 
+					    }else
+						sql_cnx.query("update gloria_imgs set status='ok' where autoID="+id+";", function(err, result) {
+						    if(err){
+							console.log("BUG: Error updating status in DB : " + err); 
+						    }
+						});
+					});
+				});
 			});
 			
 		    });

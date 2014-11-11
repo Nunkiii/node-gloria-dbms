@@ -2,10 +2,11 @@ var mysql = require('mysql');
 var sqlut = require('./mysql_utils');
 var fs = require('fs');
 var fits = require('../../node-fits/build/Release/fits.node');
+//var fits = require('/home/fullmoon/prog/dev/node-fits/build/Release/fits.node');
 
 exports.create_jpeg=function(image_id, configs, result_cb){
     
-    console.log("Analysing downloaded FITS file....");
+    console.log("Creating JPEG file....");
     
     for(c=0;c<configs.length;c++){
 	var cfg=configs[c];
@@ -19,9 +20,9 @@ exports.create_jpeg=function(image_id, configs, result_cb){
     var http = require('http');
     var fs = require('fs');
 
-    sqlut.sql_connect(function(err, sql_cnx) {
+    gloriadb.sql_connect(function(err, sql_cnx) {
 
-	if(err){
+    if(err){
 	    result_cb("Error connecting to MySQL : " + err); 
 	    return;
 	}
@@ -42,6 +43,18 @@ exports.create_jpeg=function(image_id, configs, result_cb){
 		
 		f.read_image_hdu(function(error, image){
 		    
+		    /*
+		    for(var p in image){
+			console.log("Got image properties ..... P="+p);
+		    }
+
+		    var iiii=new fits.mat_ushort();
+		    
+		    for(var p in iiii){
+			console.log("IIIIII properties ..... P="+p);
+		    }
+		    */
+
 		    if(error){
 			result_cb("Bad things happened while reading image hdu : " + error);
 			return;
@@ -51,7 +64,10 @@ exports.create_jpeg=function(image_id, configs, result_cb){
 			//var headers=f.get_headers(); console.log("FITS headers : \n" + JSON.stringify(headers, null, 4));
 			
 			var dims=[image.width(), image.height()];
-			
+			console.log("Read image : " + dims[0] + ", " + dims[1]);
+			//image.get_data();
+			//image.tile( { tile_coord :  [0,0], zoom :  0, tile_size : 200, type : "jpeg" });
+
 			//	image.histogram({ nbins: 350, cuts : [23,65] }, function(error, histo){
 			image.histogram({nbins : 1024}, function(error, histo){ //By default cuts are set to min,max and nbins to 200
 			    
@@ -59,7 +75,7 @@ exports.create_jpeg=function(image_id, configs, result_cb){
 				console.log("Histo error : " + error);
 			    else{
 				
-				//console.log("HISTO : " + JSON.stringify(histo));
+				console.log("HISTO : " + JSON.stringify(histo));
 				
 				for(c=0;c<configs.length;c++){
 				    var cfg=configs[c];
@@ -102,9 +118,10 @@ exports.create_jpeg=function(image_id, configs, result_cb){
 				    
 				    out.write(image.tile( { tile_coord :  [0,0], zoom :  0, tile_size : tile_size, type : "jpeg" }));
 				    out.end();
+				    if(c==config.length-1) result_cb(null,"ok");
 				}
 				
-				result_cb(null,"ok");
+				
 			    }
 			});
 			

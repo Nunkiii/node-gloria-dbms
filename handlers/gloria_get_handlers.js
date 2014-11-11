@@ -1,7 +1,7 @@
 var fits = require('../../node-fits/build/Release/fits.node');
 var mysql = require('mysql');
 var path = require('path');
-var sqlut = require('./mysql_utils');
+var sqlut = require('../sadira/js/mysql_utils');
 var gloria_uts = require('./gloria_utils');
 var fs=require('fs');
 var DGM = require('../../sadira/www/js/datagram');
@@ -10,66 +10,50 @@ var max_page_size = 10;
 
 
 exports.init=function(pkg){
-    console.log("gloria dbms GET handlers init pkg ! " + JSON.stringify(pkg.opts.sql_server_opts));
-    sqlut.sql_server_opts=pkg.opts.sql_server_opts;
+    //console.log("gloria dbms GET handlers init pkg ! " + JSON.stringify(pkg.opts.sql_server_opts));
+    GLOBAL.gloriadb=new sqlut.sql(pkg.opts.sql_server_opts);
 }
 
 function reply_gloria_error(res, msg, code){
     if(typeof code=='undefined') code=400;
-    var headers=cors_headers;
-    headers.content_type='application/json';
-
-    res.writeHead(code, headers);
-    res.write(JSON.stringify({n : -1, error : msg}));
-    res.end();
+    reply_json(res,{n : -1, error : msg});
 }
 
 function reply_gloria(res,n, data){
-    var headers=cors_headers;
-    headers.content_type='application/json';
-    res.writeHead(200, headers);
-
-    res.write(JSON.stringify({n : n, data : data}));
-    res.end();
+    reply_json(res,{n : n, data : data});
 }
 
 GLOBAL.get_handlers.gloria = {
     
     query_images : {
 
-	process : function (query, request, res){
+	process : function (req, res, cb){
+	    cb(null);
 
-	    //return reply_gloria_error(res, "Fausse erreurrre hein!");
-	    var req=query.req;
-
-	    if(typeof req=='undefined')
-		req="{}";
-	    
 	    try{
+      		var params = get_json_parameters(req);
+		console.log("gloria query images : processing request " + JSON.stringify(params));
 		
-		req = JSON.parse(req);
-		console.log("processing request " + JSON.stringify(req));
-		
-		sqlut.sql_connect(function(err, sql_cnx) {
+		gloriadb.sql_connect(function(err, sql_cnx) {
 		    if(err){
 			return reply_gloria_error(res,"Error connecting to MySQL : " + err); 
 		    }
 		    
 		    function check_range(qs){
 			var qqs=qs;
-			if(typeof req.from != 'undefined'){
-			    if(typeof req.to != 'undefined'){
-				var rng=req.to-req.from+1;
+			if(typeof params.from != 'undefined'){
+			    if(typeof params.to != 'undefined'){
+				var rng=params.to-params.from+1;
 				if(! isNaN(rng) && rng<= max_page_size )
-				    qqs+="limit " + req.from + "," + rng;
+				    qqs+="limit " + params.from + "," + rng;
 				else{
 				    reply_gloria_error(res, "Invalid range " + rng); 
 				    return false;
 				}
 				return qqs;
 			    } else {
-				if(! isNaN(req.from) )
-				    qqs+="limit " + req.from + "," + max_page_size;
+				if(! isNaN(params.from) )
+				    qqs+="limit " + params.from + "," + max_page_size;
 				else{
 				    reply_gloria_error(res, "Invalid range " + rng); 
 				    return false;
@@ -96,6 +80,7 @@ GLOBAL.get_handlers.gloria = {
 			var what="autoID, user, datein, experiment_type, experiment, reservation_id, telescop, instrument, observer, date_obs, exptime, filter, target_ra, target_dec, target_name,json_params";
 
 			var qs="select " + what +" from gloria_imgs where status='ok'";			
+
 			qs=check_range(qs);
 			if(!qs) return;
 			
@@ -122,7 +107,7 @@ GLOBAL.get_handlers.gloria = {
 
     get_image : {
 
-	process : function (query, request, res){
+	process : function (request, res, cb){
 	    function not_found(msg){
 		if(!msg)msg="404 Not Found";
 		var headers=cors_headers;
@@ -140,23 +125,21 @@ GLOBAL.get_handlers.gloria = {
 		res.write(msg+'\n');
 		res.end();
 	    }
-	    
-	    var req=query.req;
-	    if(typeof req=='undefined')
-		return not_found("No request json block found");
-	    
-    
+
 	    try{
-		console.log("Get image : processing request " + req);
+
+		var req = get_json_parameters(request);
+		console.log("Get image : processing request " + JSON.stringify(req));
 		
-		req = JSON.parse(req);
+		//req = JSON.parse(req);
 		//req = {id:2};
 		if(typeof req.id=="undefined") {
 		    return not_found("No image id given");
 		}
+	
 		var image_type=typeof req.type=='undefined'? "jsmat":req.type;
 
-		sqlut.sql_connect(function(err, sql_cnx) {
+		gloriadb.sql_connect(function(err, sql_cnx) {
 
 		    if(err)
 			return server_error("Error connecting to MySQL : " + err);
@@ -245,7 +228,7 @@ GLOBAL.get_handlers.gloria = {
 			    var fpath=result[0].file_path+result[0].file_name+"."+jpeg_type+".jpeg";
 			    //result_cb(null, "Image is="+JSON.stringify(fpath));
 			    var filename = fpath; //path.join(process.cwd(), uri);
-			    console.log("--> Sending file " + filename );
+			    console.log("--> Sending JPEG file " + filename );
 
 			    
 			    function send_image(){
@@ -261,8 +244,8 @@ GLOBAL.get_handlers.gloria = {
 				if(!exists){
 
 				    //Trying to create jpeg if the file doesn't exist.
-				    
 				    gloria_uts.create_jpeg(req.id, [{}],  function(error, r){
+
 					if(error!=null){
 					    return not_found("Error creating jpeg snapshot : " + error);
 					}else{
