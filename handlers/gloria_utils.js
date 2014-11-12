@@ -118,7 +118,7 @@ exports.create_jpeg=function(image_id, configs, result_cb){
 				    
 				    out.write(image.tile( { tile_coord :  [0,0], zoom :  0, tile_size : tile_size, type : "jpeg" }));
 				    out.end();
-				    if(c==config.length-1) result_cb(null,"ok");
+				    if(c==configs.length-1) result_cb(null,"ok");
 				}
 				
 				

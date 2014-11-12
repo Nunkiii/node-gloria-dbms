@@ -28,6 +28,7 @@ GLOBAL.get_handlers.gloria = {
     query_images : {
 
 	process : function (req, res, cb){
+
 	    cb(null);
 
 	    try{
