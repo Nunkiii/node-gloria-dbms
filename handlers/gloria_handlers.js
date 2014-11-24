@@ -12,7 +12,7 @@ var gloriadb;
 
 //date_obs > '2014-1-01' and (dithid = 0 or dithid=99) and exptime > 10
 
-exports.init=function(pkg){
+exports.init=function(pkg, app){
 
     console.log("GLORIA dbms init ! ");
 
@@ -20,6 +20,10 @@ exports.init=function(pkg){
 
     submit_opts=pkg.opts.submit;
     upload_dir = pkg.opts.upload_dir;
+
+
+    app.post("/gloria/submit", submit);
+
     
     return;
 
@@ -583,206 +587,114 @@ function process_fits_file(header, res){
 }
 
 
-post_handlers.gloria = {
+function submit ( req, res, cb){
+  
+  console.log("GLORIA SUBMIT handler....");
+
+  var query = get_json_parameters(req);
+  
+  console.log("GLORIA SUBMIT Received query : " + JSON.stringify(query));
+  
+  cb(null);
+
+  res.writeHead(200, {
+    'Access-Control-Allow-Origin' : '*',
+    'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    //	'content-type': 'text/plain'
     
-    submit : {
-	
-	process : function ( req, res, cb){
-	    
-	    console.log("GLORIA SUBMIT handler....");
-
-	    var query = get_json_parameters(req);
-	
-	    console.log("GLORIA SUBMIT Received query : " + JSON.stringify(query));
-	    
-	    cb(null);
-
-	    res.writeHead(200, {
-		'Access-Control-Allow-Origin' : '*',
-		'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE',
-		'Access-Control-Allow-Headers': 'Content-Type',
-		//	'content-type': 'text/plain'
-		
-	    });			    
-	    /*
-	      res.write( JSON.stringify( { status :  'ok' })) ;
-
-	    res.end();			
-	    return;
-	*/		    
-	    function return_error(e, error_id){
-		res.writeHead(200, {'content-type': 'text/plain'});
-		var error="" + e;
-		if(typeof error_id === 'undefined') error_id=1;
-		res.write(JSON.stringify({ status: "error", error_message:  error, error_id : error_id })) ;
-		res.end();			
-		console.log(error);
-	    }
-
-	    var form = new formidable.IncomingForm({ uploadDir : upload_dir});
-	    
-	    form.parse(req, function(err, fields, files) {
-		
-		try{
-
-		    if(err) throw 'POST parse error ' + err;
-		    
-		    //console.log("Received fields " + JSON.stringify(fields, null, 4));
-		    //console.log("Received files " + JSON.stringify(files, null, 4));
-		    
-		    if(typeof fields.json_header === 'undefined') throw "No json_header field !";
-		    
-		    var js_head=JSON.parse(fields.json_header);
-		    console.log("REceived header " + JSON.stringify(js_head, null, 4));
-		    
-		    var new_entry = {
-			datein : new Date(),
-			experiment_type : js_head.experimentid,
-			experiment : js_head.experiment,
-			reservation_id : js_head.reservationid,
-			file_url : js_head.url,
-			user : js_head.user,
-			status : "processing",
-			json_params : "{}"
-		    };
-		    
-		    for(var f in new_entry){
-			if (typeof new_entry[f] == 'undefined')
-			    throw "No ["+f+"] key found on header!"
-		    }
-		    
-		    console.log("Received healthy GLORIA header: "+ JSON.stringify(new_entry));
-		    
-		    record_gloria_mysql("gloria_imgs", new_entry, function (e, id){
-			if(e!=null){
-			    return return_error(e);
-			}
-			res.write( JSON.stringify( { status :  'ok', id : id, error_id : 0 })) ;
-			res.end();	
-			
-			handle_fits_file_download(id, function(err){
-			    if(err){
-				console.log("ERROR DOWNLOAD FILE : " + err);
-			    }else
-				handle_fits_file_keys(id, function(err){
-				    if(err){
-					console.log("ERROR UPDATE KEYS : " + err);
-				    }else
-					gloriadb.sql_connect(function(err, sql_cnx) {
-					    if(err){
-						console.log("Error connecting to MySQL : " + err); 
-					    }else
-						sql_cnx.query("update gloria_imgs set status='ok' where autoID="+id+";", function(err, result) {
-						    if(err){
-							console.log("BUG: Error updating status in DB : " + err); 
-						    }
-						});
-					});
-				});
-			});
-			
-		    });
-		    
-		    //Error codes :
-		    //0 : no error
-		    //1 : server error
-		    //2 : bad header
-		    
-		}
-		catch (e){
-		    return_error(e);
-		}
-		
-		console.log("End of form parse...");
-	    });
-
-	    console.log("Enf of POST process!");
+  });			    
+  /*
+  res.write( JSON.stringify( { status :  'ok' })) ;
+  
+  res.end();			
+  return;
+  */		    
+  function return_error(e, error_id){
+    res.writeHead(200, {'content-type': 'text/plain'});
+    var error="" + e;
+    if(typeof error_id === 'undefined') error_id=1;
+    res.write(JSON.stringify({ status: "error", error_message:  error, error_id : error_id })) ;
+    res.end();			
+    console.log(error);
+  }
+  
+  var form = new formidable.IncomingForm({ uploadDir : upload_dir});
+  
+  form.parse(req, function(err, fields, files) {
+    
+    try{
+      
+      if(err) throw 'POST parse error ' + err;
+      
+      //console.log("Received fields " + JSON.stringify(fields, null, 4));
+      //console.log("Received files " + JSON.stringify(files, null, 4));
+      
+      if(typeof fields.json_header === 'undefined') throw "No json_header field !";
+      
+      var js_head=JSON.parse(fields.json_header);
+      console.log("REceived header " + JSON.stringify(js_head, null, 4));
+      
+      var new_entry = {
+	datein : new Date(),
+	experiment_type : js_head.experimentid,
+	experiment : js_head.experiment,
+	reservation_id : js_head.reservationid,
+	file_url : js_head.url,
+	user : js_head.user,
+	status : "processing",
+	json_params : "{}"
+      };
+      
+      for(var f in new_entry){
+	if (typeof new_entry[f] == 'undefined')
+	throw "No ["+f+"] key found on header!"
+      }
+      
+      console.log("Received healthy GLORIA header: "+ JSON.stringify(new_entry));
+      
+      record_gloria_mysql("gloria_imgs", new_entry, function (e, id){
+	if(e!=null){
+	  return return_error(e);
 	}
-
+	res.write( JSON.stringify( { status :  'ok', id : id, error_id : 0 })) ;
+	res.end();	
+	
+	handle_fits_file_download(id, function(err){
+	  if(err){
+	    console.log("ERROR DOWNLOAD FILE : " + err);
+	  }else
+	  handle_fits_file_keys(id, function(err){
+	    if(err){
+	      console.log("ERROR UPDATE KEYS : " + err);
+	    }else
+	    gloriadb.sql_connect(function(err, sql_cnx) {
+	      if(err){
+		console.log("Error connecting to MySQL : " + err); 
+	      }else
+	      sql_cnx.query("update gloria_imgs set status='ok' where autoID="+id+";", function(err, result) {
+		if(err){
+		  console.log("BUG: Error updating status in DB : " + err); 
+		}
+	      });
+	    });
+	  });
+	});
+	
+      });
+      
+      //Error codes :
+      //0 : no error
+      //1 : server error
+      //2 : bad header
+      
     }
+    catch (e){
+      return_error(e);
+    }
+    
+    console.log("End of form parse...");
+  });
+  
+  console.log("Enf of POST process!");
 }
-
-/*
-
-get_handlers.gloria = {
-
-    test : {
-
-	process : function (query, request, res){
-
-	    gloria_uts.create_jpeg(96, [{}],  function(error, r){
-		res.writeHead(200, {'content-type': 'text/plain'});
-
-		if(error != null)
-		    res.write("Error : " + error);
-		else
-		    res.write("OK : " + r);
-		res.end();			
-	    });
-
-
-	    return;
-	    
-	}
-
-    },
-    
-    submit : {
-	process : function (query, request, res){
-	    var type= query.type;
-	    console.log("GLORIA get request query is " + JSON.stringify(query));
-	}
-    },    
-    
-    get : {
-	process : function (query, request, res){
-
-	    var type= query.type;
-	    
-
-	    console.log("GLORIA get request query is " + JSON.stringify(query));
-	    var query_string="select * from gloria_imgs where file_type='"+type+"'";
-	    
-	    query_mysql(query_string, function(error, rows, fields){
-		
-		if(error){
-		    res.writeHead(200, {'content-type': 'text/plain'});
-		    res.write(JSON.stringify({status : "error", error_message : error}));
-		    res.end();			
-		    return;
-		}
-		
-		var r=rows[0];
-		var filename = r.file_path + "/" + r.file_name;
-		console.log("Opening fn ["+filename+"]");
-		fs.readFile(filename, "binary", function(err, file_data) {
-		    
-		    if(err){
-			res.writeHead(200, {'content-type': 'text/plain'});
-			res.write(JSON.stringify({status : "error", error_message : err}));
-			res.end();			
-			return;
-		    }
-		    
-		    var headers={};
-
-		    headers["Server"] = "Sadira/11";
-		    headers["content-type"]= r.file_type;
-
-		    if(r.file_type == "image/fits")
-			headers["Content-Disposition"]="attachment; filename=\""+ r.file_orig+"\"";
-		    //headers["Content-Transfer-Encoding"]= "binary";
-
-		    res.writeHead(200, headers);
-		    res.write(file_data, "binary");
-		    res.end();			
-		});
-	    });
-	    
-	    
-	}
-    }
-    
-};
-
-*/
