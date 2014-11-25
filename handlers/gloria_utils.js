@@ -2,7 +2,154 @@ var mysql = require('mysql');
 var sqlut = require('./mysql_utils');
 var fs = require('fs');
 var fits = require('../../node-fits/build/Release/fits.node');
-//var fits = require('/home/fullmoon/prog/dev/node-fits/build/Release/fits.node');
+var http = require('http');
+
+console.log("cwd is " + process.cwd());
+//var radixsort=eval(fs.readFileSync(process.cwd()+'/www/js/community/radixsort.min.js'));
+var radixsort=require('../sadira/www/js/community/radixsort.min.js').radixsort;
+
+function autocoutes(arr, cfgi){
+    var cfg={low: 0.01, high: 0.99, ns: 2000};
+    if(è(cfgi)) for(var cfi in cfgi) cfg[cfi]=cfgi[cfi];
+
+    var ab=new ArrayBuffer(4*cfg.ns);
+    var fa=new Float32Array(ab);
+    if(arr instanceof Buffer){
+	console.log("Yes it is a f32array!!");
+    }else
+	console.log("NOOOO !! it is niet a f32array!!");
+    //var arr=new Float32Array(arri);
+
+    var ll=arr.length/4;
+
+    for (var i=0;i<fa.length;i++){
+	var pix=Math.floor(Math.random()*ll);
+	fa[i]=arr.readFloatLE(pix*4);
+	//console.log("fa " + i + " pix : "+ pix +"  fa[i]= " + fa[i] + " -> " + arr[pix]);
+    }
+    var sort=radixsort();
+    var sfa = sort(fa);
+
+    console.log("sFA L="+sfa.length);
+
+    
+    return [sfa[Math.floor(cfg.low*cfg.ns)], sfa[Math.floor(cfg.high*cfg.ns)]];
+    for (var i=0;i<sfa.length/20;i++)
+    	console.log( i + " sfa: " + sfa[i]);    
+    //console.log("Number of items : " + fa.length, " NB = " + ab.byteLength + " npix="+ll + " cuts + " + JSON.stringify(newcuts));
+}
+
+exports.get_image=function(image_id, result_cb){
+
+//    var qs="select file_path, file_name from gloria_imgs where autoID="+sql_cnx.escape(image_id)+";";
+    var qs="select file_path, file_name from gloria_imgs where autoID="+image_id+";";
+    
+    gloriadb.query(qs, function(err, result) {
+	if(err)  return result_cb("Error getting URL from DB : " + err); 
+
+	//console.log("res = " + JSON.stringify(result));
+	var fpath=result[0].file_path+"/"+result[0].file_name;
+	//result_cb(null, "Image is="+JSON.stringify(fpath));
+	
+	try{
+	    var f = new fits.file(fpath);
+	    
+	    f.read_image_hdu(function(error, image){
+		
+		if(error){
+		    result_cb("Bad things happened while reading image hdu : " + error);
+		    return;
+		}
+		
+		if(image){
+		    result_cb(null, image);
+		}
+		
+	    });
+	    console.log("End of fits callback!");
+	}
+	
+	catch (e){
+	    console.log("Error : " + e);
+	    result_cb(e);
+	}
+    });
+}
+
+exports.get_image_data=function(image_id, result_cb){
+
+    exports.get_image(image_id, function(error, image){
+	if(error!=null)return result_cb(error);
+	try{
+	    console.log("We have an image " + image);
+	    var idata=image.get_data();
+	    console.log("We have an image !!" + image);
+	    result_cb(null, idata, image);
+	}
+	catch(e){
+	    result_cb(e);
+	}
+    });
+}
+
+exports.create_jpeg_data=function(image_id, cfgi, result_cb){
+
+    var cfg={ size: [0,0], colormap: [ [0,0,0,1,0], [.5,.5,1.0,1,1.0], [1,1,1,1,1] ], zoom : 0, tile_coord : [0,0], type : "jpeg"};
+    for(var c in cfgi) cfg[c]=cfgi[c];
+
+    
+    exports.get_image_data(image_id, function(error, image_data, image){
+	
+	if(è(error)) return result_cb(error);
+
+	try{
+	    var dims=[image.width(),image.height()];
+
+	    //console.log("Image " + JSON.stringify(dims) + " Npix = " + (dims[0]*dims[1]) + " type " + typeof(image_data) + " L=" + image_data.length + " bpp = " + (image_data.length/(dims[0]*dims[1])) );
+	    var image_cuts=autocoutes(image_data, cfg);
+	    var colormap=cfg.colormap;
+	    //image_cuts=[400,600];
+	    image.set_colormap(colormap);
+	    image.set_cuts(image_cuts);
+	    
+	    
+	    for(var t in [0,1])
+		if(cfg.size[t]<=0) cfg.size[t]= dims[t];
+	    
+	    console.log("Creating tile : " + JSON.stringify(cfg));
+	
+	    var image_jpeg_data=image.tile( { tile_coord :  cfg.tile_coord, zoom :  cfg.zoom, tile_size : cfg.size, type : cfg.type });
+	    result_cb(null, image_jpeg_data);
+	}
+	catch (e){
+	    console.log("Error : " + e);
+	    result_cb(e);
+	}
+
+    });
+    
+}
+
+exports.create_jpeg_file=function(image_id, configs, result_cb){
+    
+    var cfg={ tag : "small"};
+    for(c=0;c<configs.length;c++){
+	for(var cf in configs[c]) cfg[cf]=configs[c][cf];
+	
+	create_jpeg_data(image_id, cfg, function(error, jpeg_data){
+
+	    if(error) return result_cb(error);
+
+	    var out = fs.createWriteStream(fpath+"."+cfg.tag+".jpeg");
+	    out.write(jpeg_data);
+	    out.end();
+	    if(c==configs.length-1) 
+		result_cb(null,"ok");
+	});
+    }
+    
+}
+
 
 exports.create_jpeg=function(image_id, configs, result_cb){
     
@@ -75,7 +222,7 @@ exports.create_jpeg=function(image_id, configs, result_cb){
 				console.log("Histo error : " + error);
 			    else{
 				
-				console.log("HISTO : " + JSON.stringify(histo));
+				//console.log("HISTO : " + JSON.stringify(histo));
 				
 				for(c=0;c<configs.length;c++){
 				    var cfg=configs[c];
@@ -99,6 +246,11 @@ exports.create_jpeg=function(image_id, configs, result_cb){
 				    var cuts=[histo.start+maxid*histo.step,histo.start+i*histo.step];
 				    
 				    image.set_colormap(colormap);
+
+				    console.log("Cuts " + JSON.stringify(cuts));
+				    var idata=image.get_data();
+				    var image_cuts=autocoutes(idata, cfg);
+				    console.log("AutoCuts " + JSON.stringify(image_cuts));
 				    image.set_cuts(cuts);
 				    
 				    var out = fs.createWriteStream(fpath+"."+cfg.tag+".jpeg");
