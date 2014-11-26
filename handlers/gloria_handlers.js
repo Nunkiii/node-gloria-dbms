@@ -379,7 +379,7 @@ var telescope_dictionary ={
 	target_name : "GOBJECT",
 	filter : "FILTER",
 	exptime : "EXPTIME",
-	date_obs : "DATE-OBS",
+	date_obs : "DAT-OBS",
 	target_ra : "RA",
 	target_dec : "DEC",
 	observer : "OBSERVER",

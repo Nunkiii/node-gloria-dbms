@@ -9,16 +9,11 @@ console.log("cwd is " + process.cwd());
 var radixsort=require('../sadira/www/js/community/radixsort.min.js').radixsort;
 
 function autocoutes(arr, cfgi){
-    var cfg={low: 0.01, high: 0.99, ns: 2000};
+    var cfg={low: 0.2, high: 0.99, ns: 2000};
     if(è(cfgi)) for(var cfi in cfgi) cfg[cfi]=cfgi[cfi];
 
     var ab=new ArrayBuffer(4*cfg.ns);
     var fa=new Float32Array(ab);
-    if(arr instanceof Buffer){
-	console.log("Yes it is a f32array!!");
-    }else
-	console.log("NOOOO !! it is niet a f32array!!");
-    //var arr=new Float32Array(arri);
 
     var ll=arr.length/4;
 
@@ -30,12 +25,9 @@ function autocoutes(arr, cfgi){
     var sort=radixsort();
     var sfa = sort(fa);
 
-    console.log("sFA L="+sfa.length);
-
-    
     return [sfa[Math.floor(cfg.low*cfg.ns)], sfa[Math.floor(cfg.high*cfg.ns)]];
-    for (var i=0;i<sfa.length/20;i++)
-    	console.log( i + " sfa: " + sfa[i]);    
+    // for (var i=0;i<sfa.length/20;i++)
+    // 	console.log( i + " sfa: " + sfa[i]);    
     //console.log("Number of items : " + fa.length, " NB = " + ab.byteLength + " npix="+ll + " cuts + " + JSON.stringify(newcuts));
 }
 
@@ -66,7 +58,7 @@ exports.get_image=function(image_id, result_cb){
 		}
 		
 	    });
-	    console.log("End of fits callback!");
+	    //console.log("End of fits callback!");
 	}
 	
 	catch (e){
@@ -81,9 +73,7 @@ exports.get_image_data=function(image_id, result_cb){
     exports.get_image(image_id, function(error, image){
 	if(error!=null)return result_cb(error);
 	try{
-	    console.log("We have an image " + image);
 	    var idata=image.get_data();
-	    console.log("We have an image !!" + image);
 	    result_cb(null, idata, image);
 	}
 	catch(e){
@@ -94,7 +84,7 @@ exports.get_image_data=function(image_id, result_cb){
 
 exports.create_jpeg_data=function(image_id, cfgi, result_cb){
 
-    var cfg={ size: [0,0], colormap: [ [0,0,0,1,0], [.5,.5,1.0,1,1.0], [1,1,1,1,1] ], zoom : 0, tile_coord : [0,0], type : "jpeg"};
+    var cfg={ size: [0,0], colormap: [ [0,0,0,1,0], [1,1,1,1,1] ], zoom : 0, tile_coord : [0,0], type : "jpeg"};
     for(var c in cfgi) cfg[c]=cfgi[c];
 
     
@@ -116,7 +106,7 @@ exports.create_jpeg_data=function(image_id, cfgi, result_cb){
 	    for(var t in [0,1])
 		if(cfg.size[t]<=0) cfg.size[t]= dims[t];
 	    
-	    console.log("Creating tile : " + JSON.stringify(cfg));
+	    //console.log("Creating tile : " + JSON.stringify(cfg));
 	
 	    var image_jpeg_data=image.tile( { tile_coord :  cfg.tile_coord, zoom :  cfg.zoom, tile_size : cfg.size, type : cfg.type });
 	    result_cb(null, image_jpeg_data);
@@ -158,9 +148,9 @@ exports.create_jpeg=function(image_id, configs, result_cb){
     for(c=0;c<configs.length;c++){
 	var cfg=configs[c];
 
-	if(typeof cfg.size === 'undefined') cfg.size=[128,0];
+	if(typeof cfg.size === 'undefined') cfg.size=[0,0];
 	if(typeof cfg.tag === 'undefined') cfg.tag="small";
-	if(typeof cfg.colormap === 'undefined') cfg.colormap=[ [0,0,0,1,0], [.5,1.0,.5,1,.8], [1,1,1,1,1] ];
+	if(typeof cfg.colormap === 'undefined') cfg.colormap=[ [0,0,0,1,0], [1,1,1,1,1] ];
 	if(typeof cfg.cuts_frac === 'undefined') cfg.cuts_frac=0.99;
     }
 

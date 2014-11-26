@@ -128,7 +128,7 @@ function get_image (request, res, cb){
     try{
 	
 	var req = get_json_parameters(request);
-	console.log("Get image : processing request " + JSON.stringify(req));
+	//console.log("Get image : processing request " + JSON.stringify(req));
 	
 	//req = JSON.parse(req);
 	//req = {id:2};
@@ -153,9 +153,9 @@ function get_image (request, res, cb){
 		   
 	    	function send_image_data(image_data,mime_type){
 		    try{
-			if(ù(mime_type)) mime_type = "image/jpeg";
+			//if(ù(mime_type)) mime_type = "image/jpeg";
 			var headers=cors_headers;
-			headers.content_type=mime_type;
+			headers["Content-Type"]="image/jpeg";
 			headers["Content-Length"]=image_data.length;
 			res.writeHead(200, headers);
 			//console.log("Writing image data : " + image_data.length);
@@ -262,14 +262,24 @@ function get_image (request, res, cb){
 		    function send_image(){
 			var mime_type = "image/jpeg";
 			var headers=cors_headers;
-			headers.content_type=mime_type;
-			res.writeHead(200, headers);
-			var fileStream = fs.createReadStream(filename);
-			fileStream.pipe(res);
+
+			fs.stat(filename, function(error, stat) {
+			    if (error) { throw error; }
+			    headers["Content-Type"]=mime_type;
+			    headers['Content-Length']=stat.size;
+			    res.writeHead(200, headers);
+			    
+			    var fileStream = fs.createReadStream(filename);
+			    fileStream.pipe(res);
+			    res.end();
+			}); 
+
+			
+			
 		    }
 		    
 		    path.exists(filename, function(exists) {
-			if(true){//!exists){
+			if(!exists || req.redraw){
 			    
 			    //Trying to create jpeg if the file doesn't exist.
 			    gloria_uts.create_jpeg(req.id, [{}],  function(error, r){
