@@ -94,20 +94,28 @@ exports.create_jpeg_data=function(image_id, cfgi, result_cb){
 
 	try{
 	    var dims=[image.width(),image.height()];
-
-	    //console.log("Image " + JSON.stringify(dims) + " Npix = " + (dims[0]*dims[1]) + " type " + typeof(image_data) + " L=" + image_data.length + " bpp = " + (image_data.length/(dims[0]*dims[1])) );
 	    var image_cuts=autocoutes(image_data, cfg);
 	    var colormap=cfg.colormap;
+
+	    console.log("Image " + JSON.stringify(dims) + " Npix = " + (dims[0]*dims[1])
+			+ " type " + typeof(image_data)
+			+ " L=" + image_data.length
+			+ " BBL = " + image_data.length
+			+ " bpp = " + (image_data.length/(dims[0]*dims[1]))
+			+ " cuts " + JSON.stringify(image_cuts)
+		       );
+
 	    //image_cuts=[400,600];
 	    image.set_colormap(colormap);
 	    image.set_cuts(image_cuts);
-	    
 	    
 	    for(var t in [0,1])
 		if(cfg.size[t]<=0) cfg.size[t]= dims[t];
 	    
 	    //console.log("Creating tile : " + JSON.stringify(cfg));
-	
+
+	    for (var pr in image) { console.log("IMP " + pr); }
+	    
 	    var image_jpeg_data=image.tile( { tile_coord :  cfg.tile_coord, zoom :  cfg.zoom, tile_size : cfg.size, type : cfg.type });
 	    result_cb(null, image_jpeg_data);
 	}

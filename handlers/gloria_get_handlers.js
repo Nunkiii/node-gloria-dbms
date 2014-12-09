@@ -18,7 +18,7 @@ exports.init=function(pkg, app){
 }
 
 function reply_gloria_error(res, msg, code){
-    if(typeof code=='undefined') code=400;
+    //if(typeof code=='undefined') code=400;
     reply_json(res,{n : -1, error : msg});
 }
 
@@ -27,7 +27,7 @@ function reply_gloria(res,n, data){
 }
 
 function query_images (req, res, cb){
-
+    
   try{
     var params = get_json_parameters(req);
     console.log("gloria query images : processing request " + JSON.stringify(params));
@@ -159,8 +159,9 @@ function get_image (request, res, cb){
 			headers["Content-Length"]=image_data.length;
 			res.writeHead(200, headers);
 			//console.log("Writing image data : " + image_data.length);
-			res.write(image_data);
-			res.close();
+			write_chunked_data(res, image_data);
+			//res.write(image_data);
+			//res.close();
 		    }
 		    catch(e){
 			server_error(e);
@@ -181,11 +182,6 @@ function get_image (request, res, cb){
 		    path.exists(filename, function(exists) {
 			if(!exists) 
 			    return not_found("File was not found where it should have been");
-			var mime_type = "image/qkmat";
-			
-			var headers=cors_headers;
-			headers.content_type=mime_type;
-			res.writeHead(200, headers);
 			
 			//			if(req.decode){
 			var f=new fits.file(filename);
@@ -207,9 +203,23 @@ function get_image (request, res, cb){
 				};
 				var dgm= new DGM.datagram(header, ab);
 				dgm.serialize();
-				console.log("Writing bytes " + dgm.buffer.length);
-				res.write(dgm.buffer);
-				res.end();
+				//console.log("Writing total bytes " + dgm.buffer.length);
+				
+				var mime_type = "image/qkmat";
+				var htheaders=cors_headers;
+				htheaders.content_type=mime_type;
+				htheaders["Content-Length"]=dgm.buffer.length;
+				res.writeHead(200, htheaders);
+
+				write_chunked_data(res, dgm.buffer, function (error){
+				    if(error!=null){
+					console.log("Error writing chuncked data ! " + error);
+				    }
+				    //console.log("DONE!");
+				    res.end();
+				});
+				//res.write(dgm.buffer);
+				//
 			    });
 			});
 			
