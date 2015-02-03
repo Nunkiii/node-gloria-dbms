@@ -9,12 +9,12 @@ var DGM = require('../../sadira/www/js/datagram');
 var max_page_size = 10;
 //var gloriadb;
 
-exports.init=function(pkg, app){
+exports.init=function(pkg, sad){
     //console.log("gloria dbms GET handlers init pkg ! " + JSON.stringify(pkg.opts.sql_server_opts));
     GLOBAL.gloriadb=new sqlut.sql(pkg.opts.sql_server_opts);
 
-    app.get("/gloria/query_images", query_images);
-    app.get("/gloria/get_image", get_image);
+    sad.app.get("/gloria/query_images", query_images);
+    sad.app.get("/gloria/get_image", get_image);
 }
 
 function reply_gloria_error(res, msg, code){

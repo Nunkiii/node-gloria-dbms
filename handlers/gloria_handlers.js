@@ -12,9 +12,10 @@ var gloriadb;
 
 //date_obs > '2014-1-01' and (dithid = 0 or dithid=99) and exptime > 10
 
-exports.init=function(pkg, app){
-
-    console.log("GLORIA dbms init ! ");
+exports.init=function(pkg,sad){
+    var app=sad.app;
+    
+    sad.log("GLORIA dbms init ! ");
 
     gloriadb=new sqlut.sql(pkg.opts.sql_server_opts);
 
