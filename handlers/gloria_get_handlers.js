@@ -232,6 +232,9 @@ function get_image (request, res, cb){
 		    }); //end path.exists
 		    break;
 		case "fits":
+		    if(result.length<=0)
+			return not_found("No file selected ?!");
+		    
 		    var fpath=result[0].file_path+result[0].file_name;
 		    //result_cb(null, "Image is="+JSON.stringify(fpath));
 		    var filename = fpath; //path.join(process.cwd(), uri);
